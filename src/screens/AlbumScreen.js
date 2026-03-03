@@ -8,33 +8,22 @@ import {
   TextInput,
   Modal,
   Alert,
-  Image,
   Dimensions,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import ImageColors from 'react-native-image-colors';
 import { useAlbumData } from '../hooks/useAlbumData';
 
+// Componentes shared
+import Gradient from '../components/shared/Gradient';
+import BlurView from '../components/shared/BlurView';
+import PressAnimation from '../components/shared/PressAnimation';
+import RatingBadge, { getRatingColor, getDecimalColor, formatRating } from '../components/shared/RatingBadge';
+import FavoriteStar from '../components/shared/FavoriteStar';
+import ImageWithFallback from '../components/shared/ImageWithFallback';
+
 const { width, height } = Dimensions.get('window');
-
-// Colores pastel del 1 al 10
-const getRatingColor = (rating) => {
-  if (!rating) return '#9CA3AF';
-  const colors = [
-    '#fc3a3a', '#f56c45', '#ffa457', '#ffcb52', '#faed52',
-    '#e1ff47', '#b1fa6b', '#6ad46a', '#3ecf3e', '#28bf28',
-  ];
-  const index = Math.min(9, Math.max(0, Math.floor(rating) - 1));
-  return colors[index];
-};
-
-const getDecimalColor = (rating) => {
-  if (!rating) return '#9CA3AF';
-  return getRatingColor(Math.floor(rating));
-};
 
 const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) => {
   const [selectedRating, setSelectedRating] = useState(5);
@@ -481,7 +470,6 @@ export default function AlbumScreen({ route, navigation }) {
   const handleDeleteAlbum = async () => {
     const deleted = await deleteAlbum();
     if (deleted) {
-      // Pequeña pausa antes de navegar para asegurar que la BD se libere
       setTimeout(() => {
         navigation.goBack();
       }, 100);
@@ -493,15 +481,6 @@ export default function AlbumScreen({ route, navigation }) {
       ...prev,
       [trackId]: !prev[trackId]
     }));
-  };
-
-  const albumRatingColor = getDecimalColor(albumRating);
-  const borderColor = getRatingColor(Math.floor(albumRating) + 1) || albumRatingColor;
-
-  const formatRating = (rating) => {
-    if (rating === 0) return '-';
-    if (rating === 10) return '10';
-    return rating.toFixed(1);
   };
 
   const renderInfoTab = () => {
@@ -596,8 +575,8 @@ export default function AlbumScreen({ route, navigation }) {
           {albumRating > 0 && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Promedio:</Text>
-              <Text style={[styles.infoValue, { color: albumRatingColor }]} numberOfLines={1} ellipsizeMode="tail">
-                {albumRating.toFixed(1)}
+              <Text style={[styles.infoValue, { color: getDecimalColor(albumRating) }]} numberOfLines={1} ellipsizeMode="tail">
+                {formatRating(albumRating)}
               </Text>
             </View>
           )}
@@ -641,27 +620,31 @@ export default function AlbumScreen({ route, navigation }) {
 
         <View style={{ position: 'absolute', top: 60, right: 20, zIndex: 20 }}>
           {isSaved ? (
-            <TouchableOpacity onPress={() => setShowStateModal(true)} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="ellipsis-horizontal" size={24} color="white" />
-            </TouchableOpacity>
+            <PressAnimation onPress={() => setShowStateModal(true)}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="ellipsis-horizontal" size={24} color="white" />
+              </View>
+            </PressAnimation>
           ) : (
-            <TouchableOpacity onPress={saveAlbum} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="download-outline" size={24} color="white" />
-            </TouchableOpacity>
+            <PressAnimation onPress={saveAlbum}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="download-outline" size={24} color="white" />
+              </View>
+            </PressAnimation>
           )}
         </View>
 
         <View style={{ width: width, height: height * 0.5, position: 'relative' }}>
-          <Image
-            source={{ uri: imageUrl }}
+          <ImageWithFallback
+            source={imageUrl}
             style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
+            contentFit="cover"
+            showLoading={true}
           />
 
-          <LinearGradient
+          <Gradient
             colors={['transparent', dominantColor + 'FF']}
             style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: height * 0.2 }}
-            pointerEvents="none"
           />
         </View>
 
@@ -680,9 +663,13 @@ export default function AlbumScreen({ route, navigation }) {
                 }} numberOfLines={2}>
                   {album.title}
                 </Text>
-                {isFavorite && (
-                  <Ionicons name="star" size={28} color="#FFD700" style={{ marginLeft: 8, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 }} />
-                )}
+                <FavoriteStar
+                  isFavorite={isFavorite}
+                  onPress={toggleFavorite}
+                  size={28}
+                  animated={true}
+                  style={{ marginLeft: 8 }}
+                />
               </View>
 
               <Text style={{
@@ -730,27 +717,26 @@ export default function AlbumScreen({ route, navigation }) {
                 textShadowOffset: { width: 1, height: 1 },
                 textShadowRadius: 2
               }}>Nota</Text>
-              <View style={{
-                width: 70,
-                height: 70,
-                borderRadius: 35,
-                borderWidth: 3,
-                borderColor: borderColor,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(0,0,0,0.3)'
-              }}>
-                <Text style={{
-                  color: albumRatingColor,
+              <RatingBadge
+                rating={albumRating}
+                size="large"
+                showBackground={false}
+                style={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: 35,
+                  borderWidth: 3,
+                  borderColor: getRatingColor(Math.floor(albumRating) + 1) || getDecimalColor(albumRating),
+                  backgroundColor: 'rgba(0,0,0,0.3)'
+                }}
+                textStyle={{
                   fontSize: 28,
                   fontWeight: 'bold',
                   textShadowColor: 'rgba(0,0,0,0.5)',
                   textShadowOffset: { width: 2, height: 2 },
                   textShadowRadius: 3
-                }}>
-                  {formatRating(albumRating)}
-                </Text>
-              </View>
+                }}
+              />
             </View>
           </View>
 
@@ -836,7 +822,6 @@ export default function AlbumScreen({ route, navigation }) {
               <Text style={{ color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 16, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 3 }}>Canciones</Text>
 
               {tracks.map((track, index) => {
-                const trackColor = getDecimalColor(track.rating);
                 const isExpanded = expandedComments[track.id];
 
                 return (
@@ -893,9 +878,13 @@ export default function AlbumScreen({ route, navigation }) {
                     </View>
 
                     {track.rating ? (
-                      <Text style={{ color: trackColor, fontSize: 16, fontWeight: 'bold', marginRight: 8, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 1 }}>
-                        {track.rating === 10 ? '10' : track.rating.toFixed(1)}
-                      </Text>
+                      <RatingBadge
+                        rating={track.rating}
+                        size="small"
+                        showBackground={false}
+                        style={{ marginRight: 8 }}
+                        textStyle={{ fontSize: 16, fontWeight: 'bold' }}
+                      />
                     ) : (
                       <Ionicons name="star-outline" size={20} color="rgba(255,255,255,0.3)" style={{ marginRight: 8, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 1 }} />
                     )}

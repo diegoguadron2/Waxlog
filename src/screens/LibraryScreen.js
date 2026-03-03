@@ -13,13 +13,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import { tabBarStyle } from '../navigation/AppNavigator';
 
 // Componentes
-import AlbumCard from '../components/AlbumCard';
-import TabBar from '../components/TabBar';
-import AlbumSkeleton from '../components/AlbumSkeleton';
-import LibraryHeader from '../components/LibraryHeader';
-import ControlsBar from '../components/ControlsBar';
-import SortMenu from '../components/SortMenu';
-import EmptyLibraryState from '../components/EmptyLibraryState';
+import AlbumCard from '../components/library/AlbumCard';
+import TabBar from '../components/library/TabBar';
+import AlbumSkeleton from '../components/library/AlbumSkeleton';
+import LibraryHeader from '../components/library/LibraryHeader';
+import ControlsBar from '../components/library/ControlsBar';
+import SortMenu from '../components/library/SortMenu';
+import EmptyLibraryState from '../components/library/EmptyLibraryState';
 
 // Hooks
 import { useLibraryData } from '../hooks/useLibraryData';
