@@ -1,23 +1,20 @@
-import React, { useState, useEffect } from 'react';
+// screens/GenreScreen.js
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
   Dimensions,
-  FlatList,
   ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import ImageColors from 'react-native-image-colors';
-import { getDB } from '../database/Index';
-import { BlurView } from 'expo-blur';
+import { executeDBOperation } from '../database/Index';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 2;
 const PADDING_HORIZONTAL = 16;
 const GAP = 16;
@@ -34,65 +31,63 @@ const getRatingColor = (rating) => {
   return colors[index];
 };
 
-// 🔴 COMPONENTE SKELETON PARA GENRE SCREEN
-const GenreSkeleton = () => {
-  return (
-    <View style={styles.container}>
-      <View style={[styles.skeletonBackground, { backgroundColor: '#1a1a1a' }]} />
-      
-      {/* Header skeleton */}
-      <View style={styles.skeletonHeader}>
-        <View style={styles.skeletonBackButton} />
-        <View style={styles.skeletonTitleContainer}>
-          <View style={styles.skeletonTitle} />
-          <View style={styles.skeletonStatsRow}>
-            <View style={styles.skeletonStatItem}>
-              <View style={styles.skeletonStatValue} />
-              <View style={styles.skeletonStatLabel} />
-            </View>
-            <View style={styles.skeletonStatDivider} />
-            <View style={styles.skeletonStatItem}>
-              <View style={styles.skeletonStatValue} />
-              <View style={styles.skeletonStatLabel} />
-            </View>
-            <View style={styles.skeletonStatDivider} />
-            <View style={styles.skeletonStatItem}>
-              <View style={styles.skeletonStatValue} />
-              <View style={styles.skeletonStatLabel} />
-            </View>
+// Componente Skeleton simplificado
+const GenreSkeleton = () => (
+  <View style={styles.container}>
+    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#1a1a1a' }]} />
+    
+    {/* Header skeleton */}
+    <View style={styles.skeletonHeader}>
+      <View style={styles.skeletonBackButton} />
+      <View style={styles.skeletonTitleContainer}>
+        <View style={styles.skeletonTitle} />
+        <View style={styles.skeletonStatsRow}>
+          <View style={styles.skeletonStatItem}>
+            <View style={styles.skeletonStatValue} />
+            <View style={styles.skeletonStatLabel} />
+          </View>
+          <View style={styles.skeletonStatDivider} />
+          <View style={styles.skeletonStatItem}>
+            <View style={styles.skeletonStatValue} />
+            <View style={styles.skeletonStatLabel} />
+          </View>
+          <View style={styles.skeletonStatDivider} />
+          <View style={styles.skeletonStatItem}>
+            <View style={styles.skeletonStatValue} />
+            <View style={styles.skeletonStatLabel} />
           </View>
         </View>
       </View>
-
-      {/* Tabs skeleton */}
-      <View style={styles.skeletonTabsContainer}>
-        <View style={[styles.skeletonTab, styles.skeletonTabActive]} />
-        <View style={styles.skeletonTab} />
-        <View style={styles.skeletonTab} />
-      </View>
-
-      {/* Grid skeleton */}
-      <View style={styles.skeletonGrid}>
-        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-          <View key={i} style={[styles.skeletonCard, { width: CARD_WIDTH }]}>
-            <View style={styles.skeletonImage} />
-            <View style={styles.skeletonCardInfo}>
-              <View style={styles.skeletonCardTitle} />
-              <View style={styles.skeletonCardArtist} />
-            </View>
-          </View>
-        ))}
-      </View>
     </View>
-  );
-};
+
+    {/* Tabs skeleton */}
+    <View style={styles.skeletonTabsContainer}>
+      <View style={[styles.skeletonTab, styles.skeletonTabActive]} />
+      <View style={styles.skeletonTab} />
+      <View style={styles.skeletonTab} />
+    </View>
+
+    {/* Grid skeleton */}
+    <View style={styles.skeletonGrid}>
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <View key={i} style={[styles.skeletonCard, { width: CARD_WIDTH }]}>
+          <View style={styles.skeletonImage} />
+          <View style={styles.skeletonCardInfo}>
+            <View style={styles.skeletonCardTitle} />
+            <View style={styles.skeletonCardArtist} />
+          </View>
+        </View>
+      ))}
+    </View>
+  </View>
+);
 
 export default function GenreScreen({ route, navigation }) {
   const { genre, color: genreColor } = route.params;
-
+  
   const [loading, setLoading] = useState(true);
   const [backgroundImage, setBackgroundImage] = useState(null);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'top', 'recent'
+  const [activeTab, setActiveTab] = useState('all');
   const [albums, setAlbums] = useState([]);
   const [filteredAlbums, setFilteredAlbums] = useState([]);
   const [stats, setStats] = useState({
@@ -102,101 +97,123 @@ export default function GenreScreen({ route, navigation }) {
     totalDuration: 0,
   });
 
-  // Ocultar el tab navigator al entrar en GenreScreen
+  // Ocultar tab bar
   useEffect(() => {
     navigation.getParent()?.setOptions({
       tabBarStyle: { display: 'none' }
     });
-
+    
     return () => {
-      // No hacemos nada
+      navigation.getParent()?.setOptions({
+        tabBarStyle: {
+          position: 'absolute',
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          borderTopWidth: 0,
+          elevation: 0,
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
+        }
+      });
     };
   }, [navigation]);
 
+  // Cargar álbumes del género
   useEffect(() => {
-    loadGenreData();
-  }, []);
+    let isMounted = true;
+    
+    const loadGenreAlbums = async () => {
+      try {
+        setLoading(true);
+        
+        const result = await executeDBOperation(async (db) => {
+          const searchTerm = `%${genre}%`;
+          
+          const albumsData = await db.getAllAsync(`
+            SELECT 
+              a.*,
+              a.deezer_id,
+              a.title,
+              a.cover,
+              a.is_favorite,
+              a.release_date,
+              a.downloaded_at,
+              a.duration,
+              ar.name as artist_name,
+              ar.deezer_id as artist_deezer_id,
+              COUNT(t.id) as track_count,
+              AVG(t.rating) as average_rating,
+              SUM(t.duration) as total_duration
+            FROM albums a
+            LEFT JOIN artists ar ON a.artist_id = ar.id
+            LEFT JOIN tracks t ON a.id = t.album_id
+            WHERE LOWER(a.genres) LIKE LOWER(?)
+            GROUP BY a.id
+            ORDER BY a.release_date DESC
+          `, [searchTerm]);
+          
+          return albumsData;
+        });
 
+        if (isMounted && result) {
+          setAlbums(result);
+          setFilteredAlbums(result);
+          
+          // Calcular estadísticas
+          const totalAlbums = result.length;
+          const totalTracks = result.reduce((sum, album) => sum + (album.track_count || 0), 0);
+          const totalRating = result.reduce((sum, album) => sum + (album.average_rating || 0), 0);
+          const avgRating = totalAlbums > 0 ? totalRating / totalAlbums : 0;
+          const totalDuration = result.reduce((sum, album) => sum + (album.total_duration || 0), 0);
+
+          setStats({
+            totalAlbums,
+            averageRating: avgRating,
+            totalTracks,
+            totalDuration,
+          });
+
+          // Seleccionar imagen de fondo aleatoria
+          if (result.length > 0) {
+            const randomIndex = Math.floor(Math.random() * result.length);
+            setBackgroundImage(result[randomIndex].cover);
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando álbumes del género:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadGenreAlbums();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [genre]);
+
+  // Filtrar por pestaña
   useEffect(() => {
-    // Filtrar álbumes según la pestaña activa
+    if (!albums.length) return;
+    
+    let filtered = [];
+    
     if (activeTab === 'all') {
-      setFilteredAlbums(albums);
+      filtered = albums;
     } else if (activeTab === 'top') {
-      const topRated = [...albums]
+      filtered = [...albums]
         .filter(album => album.average_rating > 0)
         .sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
-      setFilteredAlbums(topRated);
     } else if (activeTab === 'recent') {
-      const recent = [...albums]
+      filtered = [...albums]
         .sort((a, b) => new Date(b.downloaded_at || 0) - new Date(a.downloaded_at || 0));
-      setFilteredAlbums(recent);
     }
-  }, [activeTab, albums]);
-
-  const getRandomAlbumCover = async (albumsList) => {
-    if (!albumsList || albumsList.length === 0) return null;
     
-    // Seleccionar un álbum aleatorio
-    const randomIndex = Math.floor(Math.random() * albumsList.length);
-    return albumsList[randomIndex].cover;
-  };
-
-  const loadGenreData = async () => {
-    setLoading(true);
-    try {
-      const db = await getDB();
-      const searchTerm = `%${genre}%`;
-
-      // Buscar todos los álbumes de este género
-      const allAlbums = await db.getAllAsync(`
-        SELECT 
-          a.*,
-          a.deezer_id,
-          a.title,
-          a.cover,
-          a.is_favorite,
-          a.release_date,
-          a.downloaded_at,
-          a.duration,
-          ar.name as artist_name,
-          ar.deezer_id as artist_deezer_id,
-          COUNT(t.id) as track_count,
-          AVG(t.rating) as average_rating,
-          SUM(t.duration) as total_duration
-        FROM albums a
-        LEFT JOIN artists ar ON a.artist_id = ar.id
-        LEFT JOIN tracks t ON a.id = t.album_id
-        WHERE LOWER(a.genres) LIKE ?
-        GROUP BY a.id
-        ORDER BY a.release_date DESC
-      `, [searchTerm]);
-
-      // Establecer una imagen de fondo aleatoria
-      const randomCover = await getRandomAlbumCover(allAlbums);
-      setBackgroundImage(randomCover);
-
-      // Calcular estadísticas
-      const totalAlbums = allAlbums.length;
-      const totalTracks = allAlbums.reduce((sum, album) => sum + (album.track_count || 0), 0);
-      const avgRating = allAlbums.reduce((sum, album) => sum + (album.average_rating || 0), 0) / totalAlbums || 0;
-      const totalDuration = allAlbums.reduce((sum, album) => sum + (album.total_duration || 0), 0);
-
-      setStats({
-        totalAlbums,
-        averageRating: avgRating,
-        totalTracks,
-        totalDuration,
-      });
-
-      setAlbums(allAlbums);
-      setFilteredAlbums(allAlbums);
-
-    } catch (error) {
-      console.error('Error cargando género:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setFilteredAlbums(filtered);
+  }, [activeTab, albums]);
 
   const formatDuration = (seconds) => {
     if (!seconds) return '0 min';
@@ -208,23 +225,28 @@ export default function GenreScreen({ route, navigation }) {
     return `${minutes} min`;
   };
 
-  const renderAlbumCard = ({ item: album }) => {
+  const handleAlbumPress = useCallback((album) => {
+    navigation.navigate('Album', {
+      album: {
+        id: album.deezer_id,
+        title: album.title,
+        cover: album.cover
+      },
+      artistName: album.artist_name,
+      artistId: album.artist_deezer_id,
+      refresh: true
+    });
+  }, [navigation]);
+
+  const renderAlbumCard = useCallback((album) => {
     const ratingColor = album.average_rating ? getRatingColor(album.average_rating) : '#9CA3AF';
     const ratingValue = album.average_rating ? album.average_rating.toFixed(1) : null;
 
     return (
       <TouchableOpacity
+        key={album.id}
         style={[styles.albumCard, { width: CARD_WIDTH }]}
-        onPress={() => navigation.navigate('Album', {
-          album: {
-            id: album.deezer_id,
-            title: album.title,
-            cover: album.cover
-          },
-          artistName: album.artist_name,
-          artistId: album.artist_deezer_id,
-          refresh: true
-        })}
+        onPress={() => handleAlbumPress(album)}
         activeOpacity={0.7}
       >
         <View style={styles.albumImageContainer}>
@@ -232,9 +254,10 @@ export default function GenreScreen({ route, navigation }) {
             source={{ uri: album.cover }}
             style={styles.albumImage}
             contentFit="cover"
-            transition={300}
+            transition={200}
+            recyclingKey={`album-${album.id}`}
           />
-          
+
           {album.is_favorite === 1 && (
             <View style={styles.favoriteBadge}>
               <Ionicons name="star" size={12} color="#FFD700" />
@@ -262,7 +285,7 @@ export default function GenreScreen({ route, navigation }) {
           <Text style={styles.albumArtist} numberOfLines={1}>
             {album.artist_name}
           </Text>
-          
+
           <View style={styles.albumMeta}>
             {album.release_date && (
               <Text style={styles.albumYear}>
@@ -281,12 +304,12 @@ export default function GenreScreen({ route, navigation }) {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [handleAlbumPress]);
 
   const tabs = [
     { id: 'all', label: 'Todos', icon: 'albums' },
     { id: 'top', label: 'Mejores', icon: 'star' },
-    { id: 'recent', label: '', icon: 'time' }, // Solo icono, sin texto
+    { id: 'recent', label: '', icon: 'time' },
   ];
 
   if (loading) {
@@ -295,7 +318,7 @@ export default function GenreScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Fondo con imagen aleatoria y blur */}
+      {/* Fondo con blur */}
       {backgroundImage ? (
         <ImageBackground
           source={{ uri: backgroundImage }}
@@ -306,16 +329,18 @@ export default function GenreScreen({ route, navigation }) {
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#1a1a1a' }]} />
       )}
       
-      {/* Overlay oscuro para legibilidad */}
+      {/* Overlay oscuro */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.6)' }]} />
 
-      {/* Contenido con scroll */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
       >
-        {/* Header con gradiente superior */}
+        {/* Gradiente superior */}
         <LinearGradient
           colors={['rgba(0,0,0,0.8)', 'transparent']}
           style={styles.topGradient}
@@ -333,7 +358,7 @@ export default function GenreScreen({ route, navigation }) {
         {/* Título y estadísticas */}
         <View style={styles.header}>
           <Text style={styles.genreTitle}>{genre}</Text>
-          
+
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Ionicons name="albums" size={16} color="rgba(255,255,255,0.9)" />
@@ -341,7 +366,7 @@ export default function GenreScreen({ route, navigation }) {
                 {stats.totalAlbums} {stats.totalAlbums === 1 ? 'álbum' : 'álbumes'}
               </Text>
             </View>
-            
+
             {stats.averageRating > 0 && (
               <>
                 <View style={styles.statDivider} />
@@ -353,7 +378,7 @@ export default function GenreScreen({ route, navigation }) {
                 </View>
               </>
             )}
-            
+
             {stats.totalTracks > 0 && (
               <>
                 <View style={styles.statDivider} />
@@ -413,11 +438,7 @@ export default function GenreScreen({ route, navigation }) {
         {filteredAlbums.length > 0 ? (
           <View style={styles.gridContainer}>
             <View style={styles.albumGrid}>
-              {filteredAlbums.map((album) => (
-                <View key={album.id} style={{ width: CARD_WIDTH, marginBottom: GAP }}>
-                  {renderAlbumCard({ item: album })}
-                </View>
-              ))}
+              {filteredAlbums.map(album => renderAlbumCard(album))}
             </View>
           </View>
         ) : (
@@ -432,7 +453,6 @@ export default function GenreScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Espacio extra al final */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
@@ -537,7 +557,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
   },
   iconOnlyTab: {
-    flex: 0.5, // Más pequeño para el icono solo
+    flex: 0.5,
   },
   activeTab: {
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -566,6 +586,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
+    marginBottom: GAP,
   },
   albumImageContainer: {
     width: '100%',
@@ -681,11 +702,8 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 40,
   },
-
-  // 🔴 ESTILOS PARA SKELETONS
-  skeletonBackground: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  
+  // Estilos para skeleton
   skeletonHeader: {
     marginTop: 120,
     marginBottom: 20,

@@ -1,12 +1,16 @@
 // components/shared/PressAnimation/index.js
-import React, { useRef } from 'react';
-import {
-    TouchableOpacity,
-    Animated,
-} from 'react-native';
+import React from 'react';
+import { TouchableOpacity } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring, 
+  withTiming,
+  runOnJS 
+} from 'react-native-reanimated';
 
 /**
- * Componente de animación al presionar
+ * Componente de animación al presionar con Reanimated
  * 
  * @param {Object} props
  * @param {React.ReactNode} props.children - Contenido a animar
@@ -17,73 +21,60 @@ import {
  * @param {boolean} props.disabled - Deshabilitar animación
  */
 const PressAnimation = ({
-    children,
-    onPress,
-    scaleTo = 0.95,
-    opacityTo = 0.8,
-    style,
-    disabled = false,
-    ...props
+  children,
+  onPress,
+  scaleTo = 0.95,
+  opacityTo = 0.8,
+  style,
+  disabled = false,
+  ...props
 }) => {
-    const scaleAnim = useRef(new Animated.Value(1)).current;
-    const opacityAnim = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
 
-    const handlePressIn = () => {
-        if (disabled) return;
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
 
-        Animated.parallel([
-            Animated.spring(scaleAnim, {
-                toValue: scaleTo,
-                useNativeDriver: true,
-                speed: 50,
-            }),
-            Animated.timing(opacityAnim, {
-                toValue: opacityTo,
-                duration: 100,
-                useNativeDriver: true,
-            }),
-        ]).start();
-    };
+  const handlePressIn = () => {
+    'worklet';
+    scale.value = withSpring(scaleTo, { 
+      damping: 15,
+      stiffness: 150,
+    });
+    opacity.value = withTiming(opacityTo, { duration: 100 });
+  };
 
-    const handlePressOut = () => {
-        if (disabled) return;
+  const handlePressOut = () => {
+    'worklet';
+    scale.value = withSpring(1, { 
+      damping: 15,
+      stiffness: 150,
+    });
+    opacity.value = withTiming(1, { duration: 100 });
+  };
 
-        Animated.parallel([
-            Animated.spring(scaleAnim, {
-                toValue: 1,
-                useNativeDriver: true,
-                speed: 50,
-            }),
-            Animated.timing(opacityAnim, {
-                toValue: 1,
-                duration: 100,
-                useNativeDriver: true,
-            }),
-        ]).start();
-    };
+  const handlePress = () => {
+    if (onPress) {
+      runOnJS(onPress)();
+    }
+  };
 
-    return (
-        <Animated.View
-            style={[
-                {
-                    transform: [{ scale: scaleAnim }],
-                    opacity: opacityAnim,
-                },
-                style,
-            ]}
-        >
-            <TouchableOpacity
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                onPress={onPress}
-                activeOpacity={1}
-                disabled={disabled}
-                {...props}
-            >
-                {children}
-            </TouchableOpacity>
-        </Animated.View>
-    );
+  return (
+    <Animated.View style={[animatedStyle, style]}>
+      <TouchableOpacity
+        onPressIn={!disabled ? handlePressIn : undefined}
+        onPressOut={!disabled ? handlePressOut : undefined}
+        onPress={handlePress}
+        activeOpacity={1}
+        disabled={disabled}
+        {...props}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
 export default PressAnimation;

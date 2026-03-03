@@ -3,7 +3,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import deezerApi from '../services/deezerApi';
-import { getDB, dbHelpers } from '../database/Index';
+import { executeDBOperation, dbHelpers } from '../database/Index';
 
 export const useAlbumData = (initialAlbum, artistName, artistId) => {
     const [album, setAlbum] = useState(initialAlbum || {});
@@ -29,8 +29,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
 
     // Verificar si el álbum está guardado
     const checkIfSaved = useCallback(async () => {
-        try {
-            const db = await getDB();
+        return executeDBOperation(async (db) => {
             const deezerAlbumId = album?.id || initialAlbum?.id;
 
             let localAlbum = null;
@@ -38,9 +37,9 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
             if (deezerAlbumId) {
                 localAlbum = await db.getFirstAsync(
                     `SELECT a.*, ar.name as artist_name, ar.id as artist_id 
-           FROM albums a 
-           LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.deezer_id = ?`,
+                     FROM albums a 
+                     LEFT JOIN artists ar ON a.artist_id = ar.id 
+                     WHERE a.deezer_id = ?`,
                     [deezerAlbumId.toString()]
                 );
             }
@@ -48,9 +47,9 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
             if (!localAlbum && artistName && album?.title) {
                 localAlbum = await db.getFirstAsync(
                     `SELECT a.*, ar.name as artist_name, ar.id as artist_id 
-           FROM albums a 
-           LEFT JOIN artists ar ON a.artist_id = ar.id 
-           WHERE a.title = ? AND ar.name = ?`,
+                     FROM albums a 
+                     LEFT JOIN artists ar ON a.artist_id = ar.id 
+                     WHERE a.title = ? AND ar.name = ?`,
                     [album.title, artistName]
                 );
             }
@@ -104,9 +103,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                     setTracks([]);
                 }
             }
-        } catch (error) {
-            console.error('Error verificando álbum:', error);
-        }
+        });
     }, [album, initialAlbum, artistName]);
 
     // Cargar datos iniciales
@@ -132,86 +129,83 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         console.log('🔄 Guardando álbum');
 
         try {
-            const db = await getDB();
-            const now = new Date().toISOString();
+            await executeDBOperation(async (db) => {
+                const now = new Date().toISOString();
 
-            // 1. Verificar/Guardar artista (FUERA de la transacción)
-            let localArtist = await db.getFirstAsync('SELECT id FROM artists WHERE deezer_id = ?', [artistId.toString()]);
+                // 1. Verificar/Guardar artista
+                let localArtist = await db.getFirstAsync('SELECT id FROM artists WHERE deezer_id = ?', [artistId.toString()]);
 
-            if (!localArtist) {
-                const artistDetails = await deezerApi.getArtistById(artistId);
-                const artistResult = await db.runAsync(
-                    `INSERT INTO artists (deezer_id, name, picture, downloaded_at, last_updated) 
-         VALUES (?, ?, ?, ?, ?)`,
-                    [
-                        artistId.toString(),
-                        artistDetails.name,
-                        artistDetails.picture_medium,
-                        now,
-                        now
-                    ]
-                );
-                localArtist = { id: artistResult.lastInsertRowId };
-            }
-
-            // 2. Obtener detalles del álbum de Deezer
-            const albumDetails = await deezerApi.getAlbumById(album.id);
-
-            // 3. Procesar géneros
-            let genres = null;
-            if (albumDetails.genres?.data) {
-                const genreNames = albumDetails.genres.data.map(g => g.name);
-                genres = JSON.stringify(genreNames);
-            }
-
-            // 4. Guardar álbum
-            const insertQuery = `
-      INSERT INTO albums (
-        deezer_id, artist_id, title, cover, release_date, record_type,
-        genres, downloaded_at, last_updated, state
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-            const params = [
-                album.id.toString(),
-                localArtist.id,
-                albumDetails.title,
-                albumDetails.cover_medium || albumDetails.cover,
-                albumDetails.release_date,
-                albumDetails.record_type || 'album',
-                genres,
-                now,
-                now,
-                'to_listen'
-            ];
-
-            const result = await db.runAsync(insertQuery, params);
-            const newAlbumId = result.lastInsertRowId;
-
-            // 5. Guardar tracks (usando inserción directa en lugar de dbHelpers)
-            const tracksRes = await deezerApi.getAlbumTracks(album.id);
-            if (tracksRes.data && tracksRes.data.length > 0) {
-                for (let i = 0; i < tracksRes.data.length; i++) {
-                    const track = tracksRes.data[i];
-
-                    // Inserción directa sin usar dbHelpers
-                    await db.runAsync(
-                        `INSERT INTO tracks (album_id, title, track_number, duration, last_modified)
-           VALUES (?, ?, ?, ?, ?)`,
+                if (!localArtist) {
+                    const artistDetails = await deezerApi.getArtistById(artistId);
+                    const artistResult = await db.runAsync(
+                        `INSERT INTO artists (deezer_id, name, picture, downloaded_at, last_updated) 
+                         VALUES (?, ?, ?, ?, ?)`,
                         [
-                            newAlbumId,
-                            track.title,
-                            track.track_position || i + 1,
-                            track.duration,
+                            artistId.toString(),
+                            artistDetails.name,
+                            artistDetails.picture_medium,
+                            now,
                             now
                         ]
                     );
+                    localArtist = { id: artistResult.lastInsertRowId };
                 }
-            }
 
-            // Pequeña pausa para asegurar que la BD libere recursos
+                // 2. Obtener detalles del álbum de Deezer
+                const albumDetails = await deezerApi.getAlbumById(album.id);
+
+                // 3. Procesar géneros
+                let genres = null;
+                if (albumDetails.genres?.data) {
+                    const genreNames = albumDetails.genres.data.map(g => g.name);
+                    genres = JSON.stringify(genreNames);
+                }
+
+                // 4. Guardar álbum
+                const insertQuery = `
+                    INSERT INTO albums (
+                        deezer_id, artist_id, title, cover, release_date, record_type,
+                        genres, downloaded_at, last_updated, state
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+
+                const params = [
+                    album.id.toString(),
+                    localArtist.id,
+                    albumDetails.title,
+                    albumDetails.cover_medium || albumDetails.cover,
+                    albumDetails.release_date,
+                    albumDetails.record_type || 'album',
+                    genres,
+                    now,
+                    now,
+                    'to_listen'
+                ];
+
+                const result = await db.runAsync(insertQuery, params);
+                const newAlbumId = result.lastInsertRowId;
+
+                // 5. Guardar tracks
+                const tracksRes = await deezerApi.getAlbumTracks(album.id);
+                if (tracksRes.data && tracksRes.data.length > 0) {
+                    for (let i = 0; i < tracksRes.data.length; i++) {
+                        const track = tracksRes.data[i];
+                        await db.runAsync(
+                            `INSERT INTO tracks (album_id, title, track_number, duration, last_modified)
+                             VALUES (?, ?, ?, ?, ?)`,
+                            [
+                                newAlbumId,
+                                track.title,
+                                track.track_position || i + 1,
+                                track.duration,
+                                now
+                            ]
+                        );
+                    }
+                }
+            });
+
             await waitForDB(800);
-
             await checkIfSaved();
             Alert.alert('✅ Éxito', 'Álbum guardado correctamente');
             console.log('✅ Álbum guardado');
@@ -235,18 +229,15 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         console.log(`🔄 Actualizando estado a: ${state}`);
 
         try {
-            const db = await getDB();
-            const now = new Date().toISOString();
+            await executeDBOperation(async (db) => {
+                const now = new Date().toISOString();
+                await db.runAsync(
+                    `UPDATE albums SET state = ?, last_updated = ? WHERE id = ?`,
+                    [state, now, localAlbumId]
+                );
+            });
 
-            // No necesitamos transacción para una sola UPDATE
-            await db.runAsync(
-                `UPDATE albums SET state = ?, last_updated = ? WHERE id = ?`,
-                [state, now, localAlbumId]
-            );
-
-            // Pequeña pausa para asegurar que la BD libere recursos
             await waitForDB(300);
-
             setAlbumState(state);
             console.log(`✅ Estado actualizado a: ${state}`);
 
@@ -266,17 +257,16 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         console.log(`🔄 Toggle favorito: ${!isFavorite}`);
 
         try {
-            const db = await getDB();
-            const now = new Date().toISOString();
-            const newValue = isFavorite ? 0 : 1;
-
-            await db.runAsync(
-                `UPDATE albums SET is_favorite = ?, last_updated = ? WHERE id = ?`,
-                [newValue, now, localAlbumId]
-            );
+            await executeDBOperation(async (db) => {
+                const now = new Date().toISOString();
+                const newValue = isFavorite ? 0 : 1;
+                await db.runAsync(
+                    `UPDATE albums SET is_favorite = ?, last_updated = ? WHERE id = ?`,
+                    [newValue, now, localAlbumId]
+                );
+            });
 
             await waitForDB(300);
-
             setIsFavorite(!isFavorite);
             console.log(`✅ Favorito actualizado: ${!isFavorite}`);
 
@@ -296,9 +286,10 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         console.log('🔄 Eliminando álbum');
 
         try {
-            const db = await getDB();
+            const album = await executeDBOperation(async (db) => {
+                return await db.getFirstAsync('SELECT cover_local FROM albums WHERE id = ?', [localAlbumId]);
+            });
 
-            const album = await db.getFirstAsync('SELECT cover_local FROM albums WHERE id = ?', [localAlbumId]);
             if (album?.cover_local) {
                 await FileSystem.deleteAsync(album.cover_local).catch(() => { });
             }
@@ -307,7 +298,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
             await dbHelpers.deleteAlbumAndCleanup(localAlbumId);
 
             await waitForDB(500);
-
             console.log('✅ Álbum eliminado');
             return true;
 
@@ -328,16 +318,15 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         console.log('🔄 Guardando comentario');
 
         try {
-            const db = await getDB();
-            const now = new Date().toISOString();
-
-            await db.runAsync(
-                `UPDATE albums SET user_description = ?, last_updated = ? WHERE id = ?`,
-                [comment, now, localAlbumId]
-            );
+            await executeDBOperation(async (db) => {
+                const now = new Date().toISOString();
+                await db.runAsync(
+                    `UPDATE albums SET user_description = ?, last_updated = ? WHERE id = ?`,
+                    [comment, now, localAlbumId]
+                );
+            });
 
             await waitForDB(300);
-
             setAlbumComment(comment);
             console.log('✅ Comentario guardado');
             return true;
@@ -350,6 +339,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
             operationInProgressRef.current = false;
         }
     }, [localAlbumId]);
+
     // Guardar calificación de canción
     const saveTrackRating = useCallback(async (trackId, rating, comment) => {
         if (!localAlbumId || operationInProgressRef.current) return;
@@ -358,13 +348,13 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         console.log(`🔄 Guardando calificación para track ${trackId}: ${rating}`);
 
         try {
-            const db = await getDB();
-            const now = new Date().toISOString();
-
-            await db.runAsync(
-                `UPDATE tracks SET rating = ?, comment = ?, last_modified = ? WHERE id = ?`,
-                [rating, comment, now, trackId]
-            );
+            await executeDBOperation(async (db) => {
+                const now = new Date().toISOString();
+                await db.runAsync(
+                    `UPDATE tracks SET rating = ?, comment = ?, last_modified = ? WHERE id = ?`,
+                    [rating, comment, now, trackId]
+                );
+            });
 
             // Actualizar tracks localmente
             const updatedTracks = tracks.map(t =>
@@ -380,7 +370,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
             }
 
             await waitForDB(300);
-
             Alert.alert('Éxito', 'Calificación guardada');
             console.log('✅ Calificación guardada');
 
@@ -401,57 +390,57 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         console.log('🔄 Actualizando información desde Deezer');
 
         try {
-            const db = await getDB();
-            const deezerAlbumId = album?.id || initialAlbum?.id;
+            await executeDBOperation(async (db) => {
+                const deezerAlbumId = album?.id || initialAlbum?.id;
 
-            if (!deezerAlbumId) {
-                throw new Error('No se pudo obtener el ID de Deezer');
-            }
-
-            const albumDetails = await deezerApi.getAlbumById(deezerAlbumId);
-
-            if (!albumDetails) {
-                throw new Error('No se pudo obtener información de Deezer');
-            }
-
-            const now = new Date().toISOString();
-
-            const record_type = albumDetails.record_type ? String(albumDetails.record_type) : null;
-            const duration = albumDetails.duration ? parseInt(albumDetails.duration) : null;
-            const record_label = albumDetails.label ? String(albumDetails.label) : null;
-
-            let genres = null;
-            if (albumDetails.genres?.data && Array.isArray(albumDetails.genres.data)) {
-                const genreNames = albumDetails.genres.data
-                    .map(g => g.name)
-                    .filter(name => name && typeof name === 'string');
-
-                if (genreNames.length > 0) {
-                    genres = JSON.stringify(genreNames);
+                if (!deezerAlbumId) {
+                    throw new Error('No se pudo obtener el ID de Deezer');
                 }
-            }
 
-            await db.runAsync(
-                `UPDATE albums SET
-        record_type = ?,
-        duration = ?,
-        genres = ?,
-        record_label = ?,
-        last_updated = ?
-       WHERE id = ?`,
-                [
-                    record_type,
-                    duration,
-                    genres,
-                    record_label,
-                    now,
-                    localAlbumId
-                ]
-            );
+                const albumDetails = await deezerApi.getAlbumById(deezerAlbumId);
+
+                if (!albumDetails) {
+                    throw new Error('No se pudo obtener información de Deezer');
+                }
+
+                const now = new Date().toISOString();
+
+                const record_type = albumDetails.record_type ? String(albumDetails.record_type) : null;
+                const duration = albumDetails.duration ? parseInt(albumDetails.duration) : null;
+                const record_label = albumDetails.label ? String(albumDetails.label) : null;
+
+                let genres = null;
+                if (albumDetails.genres?.data && Array.isArray(albumDetails.genres.data)) {
+                    const genreNames = albumDetails.genres.data
+                        .map(g => g.name)
+                        .filter(name => name && typeof name === 'string');
+
+                    if (genreNames.length > 0) {
+                        genres = JSON.stringify(genreNames);
+                    }
+                }
+
+                await db.runAsync(
+                    `UPDATE albums SET
+                        record_type = ?,
+                        duration = ?,
+                        genres = ?,
+                        record_label = ?,
+                        last_updated = ?
+                     WHERE id = ?`,
+                    [
+                        record_type,
+                        duration,
+                        genres,
+                        record_label,
+                        now,
+                        localAlbumId
+                    ]
+                );
+            });
 
             await waitForDB(500);
             await checkIfSaved();
-
             Alert.alert('✅ Éxito', 'Información del álbum actualizada correctamente');
             console.log('✅ Información actualizada');
 

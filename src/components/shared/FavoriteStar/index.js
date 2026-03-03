@@ -1,10 +1,19 @@
 // components/shared/FavoriteStar/index.js
-import React, { useEffect, useRef } from 'react';
-import { Animated, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { TouchableOpacity, StyleSheet } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  withSequence,
+  withTiming,
+  runOnJS,
+  interpolate
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
 /**
- * Componente FavoriteStar reutilizable
+ * Componente FavoriteStar con Reanimated
  * 
  * @param {Object} props
  * @param {boolean} props.isFavorite - Estado de favorito
@@ -16,107 +25,103 @@ import { Ionicons } from '@expo/vector-icons';
  * @param {boolean} props.animated - Activar animación (default: true)
  */
 const FavoriteStar = ({
-    isFavorite,
-    onPress,
-    size = 24,
-    color = '#FFD700',
-    style,
-    disabled = false,
-    animated = true,
+  isFavorite,
+  onPress,
+  size = 24,
+  color = '#FFD700',
+  style,
+  disabled = false,
+  animated = true,
 }) => {
-    const scaleAnim = useRef(new Animated.Value(1)).current;
-    const rotateAnim = useRef(new Animated.Value(0)).current;
+  const scale = useSharedValue(1);
+  const rotation = useSharedValue(0);
+  const favoriteState = useSharedValue(isFavorite ? 1 : 0);
 
-    useEffect(() => {
-        if (animated) {
-            // Animación cuando cambia el estado
-            Animated.sequence([
-                Animated.parallel([
-                    Animated.spring(scaleAnim, {
-                        toValue: 1.3,
-                        useNativeDriver: true,
-                        speed: 30,
-                    }),
-                    Animated.timing(rotateAnim, {
-                        toValue: 1,
-                        duration: 200,
-                        useNativeDriver: true,
-                    }),
-                ]),
-                Animated.spring(scaleAnim, {
-                    toValue: 1,
-                    useNativeDriver: true,
-                    speed: 30,
-                }),
-            ]).start(() => {
-                rotateAnim.setValue(0);
-            });
-        }
-    }, [isFavorite]);
+  // Sincronizar estado cuando cambia externamente
+  useEffect(() => {
+    favoriteState.value = isFavorite ? 1 : 0;
+  }, [isFavorite]);
 
-    const rotation = rotateAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0deg', '360deg'],
-    });
-
-    const handlePress = () => {
-        if (disabled) return;
-        onPress?.();
-    };
-
-    const renderIcon = () => {
-        if (animated) {
-            return (
-                <Animated.View
-                    style={{
-                        transform: [
-                            { scale: scaleAnim },
-                            { rotate: rotation },
-                        ],
-                    }}
-                >
-                    <Ionicons
-                        name={isFavorite ? 'star' : 'star-outline'}
-                        size={size}
-                        color={isFavorite ? color : 'rgba(255,255,255,0.5)'}
-                    />
-                </Animated.View>
-            );
-        }
-
-        return (
-            <Ionicons
-                name={isFavorite ? 'star' : 'star-outline'}
-                size={size}
-                color={isFavorite ? color : 'rgba(255,255,255,0.5)'}
-            />
-        );
-    };
-
-    if (disabled) {
-        return (
-            <Animated.View style={[styles.container, style]}>
-                {renderIcon()}
-            </Animated.View>
-        );
+  useEffect(() => {
+    if (animated) {
+      // Secuencia de animación cuando cambia el estado
+      scale.value = withSequence(
+        withSpring(1.3, { damping: 10 }),
+        withSpring(1)
+      );
+      
+      rotation.value = withSequence(
+        withTiming(1, { duration: 200 }),
+        withTiming(0, { duration: 0 })
+      );
     }
+  }, [isFavorite]);
 
-    return (
-        <TouchableOpacity
-            onPress={handlePress}
-            style={[styles.container, style]}
-            activeOpacity={0.7}
-        >
-            {renderIcon()}
-        </TouchableOpacity>
+  const animatedStyle = useAnimatedStyle(() => {
+    const rotate = interpolate(
+      rotation.value,
+      [0, 1],
+      [0, 360]
     );
+
+    return {
+      transform: [
+        { scale: scale.value },
+        { rotate: `${rotate}deg` }
+      ],
+    };
+  });
+
+  const handlePress = () => {
+    if (disabled) return;
+    
+    // Cambiar estado local para animación inmediata
+    favoriteState.value = favoriteState.value === 1 ? 0 : 1;
+    
+    // Animar
+    scale.value = withSequence(
+      withSpring(1.4, { damping: 8 }),
+      withSpring(1)
+    );
+    
+    rotation.value = withSequence(
+      withTiming(1, { duration: 250 }),
+      withTiming(0, { duration: 0 })
+    );
+
+    // Llamar al callback después de la animación
+    runOnJS(onPress)();
+  };
+
+  const iconName = isFavorite ? 'star' : 'star-outline';
+  const iconColor = isFavorite ? color : 'rgba(255,255,255,0.5)';
+
+  if (disabled) {
+    return (
+      <Animated.View style={[styles.container, style, animatedStyle]}>
+        <Ionicons name={iconName} size={size} color={iconColor} />
+      </Animated.View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      style={[styles.container, style]}
+      activeOpacity={0.7}
+    >
+      <Animated.View style={animatedStyle}>
+        <Ionicons name={iconName} size={size} color={iconColor} />
+      </Animated.View>
+    </TouchableOpacity>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export default FavoriteStar;

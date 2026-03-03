@@ -1,3 +1,4 @@
+// screens/ArtistScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -17,7 +18,8 @@ import ImageColors from 'react-native-image-colors';
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
 import deezerApi from '../services/deezerApi';
-import { getDB } from '../database/Index';
+import { executeDBOperation } from '../database/Index';
+
 const { width, height } = Dimensions.get('window');
 
 // Función mejorada para determinar el tipo de álbum
@@ -60,7 +62,6 @@ export default function ArtistScreen({ route, navigation }) {
 
   const [artist, setArtist] = useState(initialArtist);
   const [artistDetails, setArtistDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [albumsLoading, setAlbumsLoading] = useState(false);
   const [relatedLoading, setRelatedLoading] = useState(false);
@@ -70,75 +71,126 @@ export default function ArtistScreen({ route, navigation }) {
   const [related, setRelated] = useState([]);
   const [isConnected, setIsConnected] = useState(null);
   const [localArtistId, setLocalArtistId] = useState(null);
-  const [localAlbumsCount, setLocalAlbumsCount] = useState(0);
   const [connectionChecked, setConnectionChecked] = useState(false);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-// ELIMINA LA IMPORTACIÓN DE defaultTabBarStyle
-
-// Ocultar el tab navigator al entrar en ArtistScreen
-useEffect(() => {
-  navigation.getParent()?.setOptions({
-    tabBarStyle: { display: 'none' }
-  });
-
-  return () => {
-    // No hacemos nada
-  };
-}, [navigation]);
+  // Ocultar el tab navigator
+  useEffect(() => {
+    navigation.getParent()?.setOptions({
+      tabBarStyle: { display: 'none' }
+    });
+    
+  }, [navigation]);
 
   // Verificar conexión a internet
   useEffect(() => {
+    let isMounted = true;
+    
     const checkConnection = async () => {
       const state = await NetInfo.fetch();
-      setIsConnected(state.isConnected ?? false);
-      setConnectionChecked(true);
+      if (isMounted) {
+        setIsConnected(state.isConnected ?? false);
+        setConnectionChecked(true);
+      }
     };
 
     checkConnection();
 
     const unsubscribe = NetInfo.addEventListener(state => {
-      setIsConnected(state.isConnected ?? false);
+      if (isMounted) {
+        setIsConnected(state.isConnected ?? false);
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
+
+  // Cargar ID local del artista
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadLocalArtistId = async () => {
+      try {
+        const result = await executeDBOperation(async (db) => {
+          return await db.getFirstAsync(
+            'SELECT id FROM artists WHERE deezer_id = ?',
+            [artist.id.toString()]
+          );
+        });
+        
+        if (isMounted && result) {
+          setLocalArtistId(result.id);
+        }
+      } catch (error) {
+        console.error('Error cargando ID local del artista:', error);
+      }
+    };
+
+    loadLocalArtistId();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [artist.id]);
 
   // Cargar datos del artista
   useEffect(() => {
-    loadArtistData();
-  }, []);
+    let isMounted = true;
+    
+    const loadArtistData = async () => {
+      try {
+        setLoading(true);
+        
+        const imageUrl = artist.picture_big || artist.picture_medium || artist.picture;
+        if (imageUrl && isMounted) {
+          await getImageColors(imageUrl);
+        }
 
-  // 🔴 CORREGIDO: Cargar álbumes cuando la conexión y el artista local estén listos
+        // Si hay conexión, obtener detalles completos del artista
+        if (isConnected) {
+          try {
+            const details = await deezerApi.getArtistById(artist.id);
+            if (isMounted) {
+              setArtistDetails(details);
+            }
+          } catch (error) {
+            console.log('Error cargando detalles del artista:', error);
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando artista:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    if (connectionChecked) {
+      loadArtistData();
+    }
+  }, [artist.id, isConnected, connectionChecked]);
+
+  // Cargar álbumes cuando el artista local y la conexión estén listos
   useEffect(() => {
-    if (!loading && connectionChecked) {
-      // Si hay conexión, cargar todos los álbumes (locales + API)
+    if (connectionChecked) {
       if (isConnected) {
         loadAllAlbums();
       } else {
-        // Si no hay conexión, solo cargar locales
         loadLocalAlbumsOnly();
       }
-      setInitialLoadDone(true);
     }
-  }, [loading, connectionChecked, isConnected]);
+  }, [localArtistId, isConnected, connectionChecked, activeTab]);
 
   // Manejar cambios de pestaña
   useEffect(() => {
-    if (initialLoadDone) {
-      if (activeTab === 'discography') {
-        if (isConnected) {
-          loadAllAlbums();
-        } else {
-          loadLocalAlbumsOnly();
-        }
-      } else if (activeTab === 'related' && isConnected) {
-        loadRelatedArtists();
-      } else if (activeTab === 'related' && !isConnected) {
-        setRelated([]);
-      }
+    if (connectionChecked && activeTab === 'related' && isConnected) {
+      loadRelatedArtists();
     }
-  }, [activeTab, isConnected, initialLoadDone]);
+  }, [activeTab, isConnected, connectionChecked]);
 
   const getImageColors = async (imageUrl) => {
     try {
@@ -164,58 +216,38 @@ useEffect(() => {
     }
   };
 
-  const loadArtistData = async () => {
-    setLoading(true);
-    try {
-      const imageUrl = artist.picture_big || artist.picture_medium || artist.picture;
-      if (imageUrl) {
-        await getImageColors(imageUrl);
-      }
-
-      const db = await getDB();
-      const localArtist = await db.getFirstAsync(
-        'SELECT id FROM artists WHERE deezer_id = ?',
-        [artist.id.toString()]
-      );
-
-      setLocalArtistId(localArtist?.id || null);
-
-      // Si hay conexión, obtener detalles completos del artista
-      if (isConnected) {
-        try {
-          const details = await deezerApi.getArtistById(artist.id);
-          setArtistDetails(details);
-        } catch (error) {
-          console.log('Error cargando detalles del artista:', error);
-        }
-      }
-
-    } catch (error) {
-      console.error('Error cargando artista:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadArtistData();
+    
+    // Recargar datos
+    const imageUrl = artist.picture_big || artist.picture_medium || artist.picture;
+    if (imageUrl) {
+      await getImageColors(imageUrl);
+    }
+
     if (isConnected) {
+      try {
+        const details = await deezerApi.getArtistById(artist.id);
+        setArtistDetails(details);
+      } catch (error) {
+        console.log('Error cargando detalles del artista:', error);
+      }
+      
       await loadAllAlbums();
     } else {
       await loadLocalAlbumsOnly();
     }
+    
     setRefreshing(false);
   };
 
   const loadLocalAlbumsOnly = async () => {
+    if (!localArtistId) return;
+    
     setAlbumsLoading(true);
     try {
-      let albumsList = [];
-
-      if (localArtistId) {
+      await executeDBOperation(async (db) => {
         console.log('Cargando álbumes locales para artista ID:', localArtistId);
-        const db = await getDB();
         const localAlbums = await db.getAllAsync(
           `SELECT a.*, 
                   COUNT(t.id) as total_tracks,
@@ -229,16 +261,15 @@ useEffect(() => {
         );
 
         console.log(`Encontrados ${localAlbums.length} álbumes locales`);
-        setLocalAlbumsCount(localAlbums.length);
 
-        albumsList = localAlbums.map(album => ({
+        const albumsList = localAlbums.map(album => ({
           ...album,
           isDownloaded: true,
           displayType: getAlbumTypeFromData(album),
         }));
-      }
 
-      setAlbums(albumsList);
+        setAlbums(albumsList);
+      });
     } catch (error) {
       console.error('Error cargando álbumes locales:', error);
     } finally {
@@ -249,77 +280,75 @@ useEffect(() => {
   const loadAllAlbums = async () => {
     setAlbumsLoading(true);
     try {
-      let albumsList = [];
+      await executeDBOperation(async (db) => {
+        let albumsList = [];
 
-      // Primero cargar locales
-      if (localArtistId) {
-        const db = await getDB();
-        const localAlbums = await db.getAllAsync(
-          `SELECT a.*, 
-                  COUNT(t.id) as total_tracks,
-                  AVG(t.rating) as average_rating
-           FROM albums a
-           LEFT JOIN tracks t ON a.id = t.album_id
-           WHERE a.artist_id = ?
-           GROUP BY a.id
-           ORDER BY a.release_date DESC`,
-          [localArtistId]
-        );
+        // Primero cargar locales
+        if (localArtistId) {
+          const localAlbums = await db.getAllAsync(
+            `SELECT a.*, 
+                    COUNT(t.id) as total_tracks,
+                    AVG(t.rating) as average_rating
+             FROM albums a
+             LEFT JOIN tracks t ON a.id = t.album_id
+             WHERE a.artist_id = ?
+             GROUP BY a.id
+             ORDER BY a.release_date DESC`,
+            [localArtistId]
+          );
 
-        setLocalAlbumsCount(localAlbums.length);
+          albumsList = localAlbums.map(album => ({
+            ...album,
+            isDownloaded: true,
+            displayType: getAlbumTypeFromData(album),
+          }));
+        }
 
-        albumsList = localAlbums.map(album => ({
-          ...album,
-          isDownloaded: true,
-          displayType: getAlbumTypeFromData(album),
-        }));
-      }
+        // Luego agregar de API si hay conexión
+        if (isConnected) {
+          try {
+            console.log('Cargando álbumes de API para artista:', artist.id);
+            const apiAlbums = await deezerApi.getArtistAlbums(artist.id);
+            const apiAlbumsList = (apiAlbums.data || []).map(album => {
+              const isDownloaded = albumsList.some(a => a.deezer_id === album.id.toString());
+              return {
+                ...album,
+                id: album.id,
+                deezer_id: album.id.toString(),
+                title: album.title,
+                cover: album.cover_medium || album.cover,
+                cover_medium: album.cover_medium,
+                release_date: album.release_date,
+                nb_tracks: album.nb_tracks,
+                record_type: album.record_type,
+                displayType: getAlbumTypeFromData(album),
+                isDownloaded,
+                sortDate: album.release_date ? new Date(album.release_date) : new Date(0),
+              };
+            });
 
-      // Luego agregar de API si hay conexión
-      if (isConnected) {
-        try {
-          console.log('Cargando álbumes de API para artista:', artist.id);
-          const apiAlbums = await deezerApi.getArtistAlbums(artist.id);
-          const apiAlbumsList = (apiAlbums.data || []).map(album => {
-            const isDownloaded = albumsList.some(a => a.deezer_id === album.id.toString());
-            return {
-              ...album,
-              id: album.id,
-              deezer_id: album.id.toString(),
-              title: album.title,
-              cover: album.cover_medium || album.cover,
-              cover_medium: album.cover_medium,
-              release_date: album.release_date,
-              nb_tracks: album.nb_tracks,
-              record_type: album.record_type,
-              displayType: getAlbumTypeFromData(album),
-              isDownloaded,
-              sortDate: album.release_date ? new Date(album.release_date) : new Date(0),
-            };
-          });
+            console.log(`Encontrados ${apiAlbumsList.length} álbumes en API`);
 
-          console.log(`Encontrados ${apiAlbumsList.length} álbumes en API`);
+            // Combinar y eliminar duplicados
+            const combinedAlbums = [...albumsList, ...apiAlbumsList.filter(
+              api => !albumsList.some(local => local.deezer_id === api.id.toString())
+            )];
 
-          // Combinar y eliminar duplicados
-          const combinedAlbums = [...albumsList, ...apiAlbumsList.filter(
-            api => !albumsList.some(local => local.deezer_id === api.id.toString())
-          )];
+            combinedAlbums.sort((a, b) => {
+              const dateA = a.release_date ? new Date(a.release_date) : new Date(0);
+              const dateB = b.release_date ? new Date(b.release_date) : new Date(0);
+              return dateB - dateA;
+            });
 
-          combinedAlbums.sort((a, b) => {
-            const dateA = a.release_date ? new Date(a.release_date) : new Date(0);
-            const dateB = b.release_date ? new Date(b.release_date) : new Date(0);
-            return dateB - dateA;
-          });
-
-          setAlbums(combinedAlbums);
-        } catch (apiError) {
-          console.error('Error cargando álbumes de API:', apiError);
+            setAlbums(combinedAlbums);
+          } catch (apiError) {
+            console.error('Error cargando álbumes de API:', apiError);
+            setAlbums(albumsList);
+          }
+        } else {
           setAlbums(albumsList);
         }
-      } else {
-        setAlbums(albumsList);
-      }
-
+      });
     } catch (error) {
       console.error('Error cargando álbumes:', error);
       Alert.alert('Error', 'No se pudieron cargar los álbumes');
@@ -350,11 +379,26 @@ useEffect(() => {
     return dateString.split('-')[0];
   };
 
+  // Si está cargando, mostrar skeleton
   if (loading || !connectionChecked) {
     return (
       <View style={[styles.container, { backgroundColor }]}>
-        <ActivityIndicator size="large" color="rgba(255,255,255,0.7)" />
-        <Text style={styles.loadingText}>Cargando artista...</Text>
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#1a1a1a' }]} />
+        
+        <View style={styles.skeletonHeader}>
+          <View style={styles.skeletonBackButton} />
+          <View style={styles.skeletonImage} />
+          <View style={styles.skeletonArtistName} />
+          <View style={styles.skeletonStatsRow}>
+            <View style={styles.skeletonStatItem} />
+            <View style={styles.skeletonStatItem} />
+            <View style={styles.skeletonStatItem} />
+          </View>
+          <View style={styles.skeletonTabs}>
+            <View style={styles.skeletonTab} />
+            <View style={styles.skeletonTab} />
+          </View>
+        </View>
       </View>
     );
   }
@@ -390,6 +434,7 @@ useEffect(() => {
             style={styles.image}
             contentFit="cover"
             transition={300}
+            recyclingKey={`artist-${artist.id}`}
           />
 
           <LinearGradient
@@ -415,7 +460,7 @@ useEffect(() => {
           )}
           <View style={styles.statItem}>
             <Ionicons name="albums" size={20} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.statValue}>{localAlbumsCount}</Text>
+            <Text style={styles.statValue}>{localArtistId ? 1 : 0}</Text>
             <Text style={styles.statLabel}>en tu biblioteca</Text>
           </View>
           {albums.length > 0 && (
@@ -894,5 +939,57 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     textAlign: 'center',
+  },
+  // Estilos para skeleton
+  skeletonHeader: {
+    flex: 1,
+    backgroundColor: '#1a1a1a',
+  },
+  skeletonBackButton: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    zIndex: 20,
+  },
+  skeletonImage: {
+    width: width,
+    height: height * 0.5,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  skeletonArtistName: {
+    width: '70%',
+    height: 36,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  skeletonStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+    marginBottom: 20,
+  },
+  skeletonStatItem: {
+    width: 60,
+    height: 60,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 8,
+  },
+  skeletonTabs: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  skeletonTab: {
+    flex: 1,
+    height: 44,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 8,
   },
 });

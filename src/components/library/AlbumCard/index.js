@@ -1,17 +1,24 @@
-import React, { useEffect, useRef, memo } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Image as RNImage,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  withTiming,
+  interpolate,
+  runOnJS
+} from 'react-native-reanimated';
 
-// Colores pastel para calificaciones (podríamos mover esto a utils después)
+// Colores pastel para calificaciones
 const getRatingColor = (rating) => {
   if (!rating) return '#4B5563';
   const roundedRating = Math.round(rating);
@@ -22,101 +29,76 @@ const getRatingColor = (rating) => {
   return colors[Math.min(9, Math.max(0, roundedRating - 1))];
 };
 
-// Componente de animación al presionar
+// Componente de animación al presionar integrado
 const PressAnimation = ({ children, onPress }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
 
   const handlePressIn = () => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 0.95,
-        useNativeDriver: true,
-        speed: 50,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0.8,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    scale.value = withSpring(0.95, { damping: 15 });
+    opacity.value = withTiming(0.8, { duration: 100 });
   };
 
   const handlePressOut = () => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 50,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    scale.value = withSpring(1, { damping: 15 });
+    opacity.value = withTiming(1, { duration: 100 });
+  };
+
+  const handlePress = () => {
+    if (onPress) {
+      runOnJS(onPress)();
+    }
   };
 
   return (
-    <Animated.View
-      style={{
-        transform: [{ scale: scaleAnim }],
-        opacity: opacityAnim,
-      }}
+    <TouchableOpacity
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={handlePress}
+      activeOpacity={1}
     >
-      <TouchableOpacity
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        onPress={onPress}
-        activeOpacity={1}
+      <Animated.View
+        style={{
+          transform: [{ scale }],
+          opacity,
+        }}
       >
         {children}
-      </TouchableOpacity>
-    </Animated.View>
+      </Animated.View>
+    </TouchableOpacity>
   );
 };
 
 // Componente principal AlbumCard
-const AlbumCard = memo(({ 
+const AlbumCard = ({ 
   album, 
   viewMode, 
   activeTab, 
   onPress,
-  cardWidth, // Recibimos el ancho como prop para mantener consistencia
+  cardWidth,
 }) => {
   const showRating = activeTab === 'listened' && album.average_rating > 0;
   const ratingColor = showRating ? getRatingColor(album.average_rating) : '#4B5563';
   const coverSource = album.cover_local || album.cover;
 
   // Animación de entrada
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(20)).current;
+  const fadeAnim = useSharedValue(0);
+  const translateY = useSharedValue(20);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    fadeAnim.value = withTiming(1, { duration: 300 });
+    translateY.value = withTiming(0, { duration: 300 });
   }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   // Renderizado para vista grid
   if (viewMode === 'grid') {
     return (
-      <Animated.View
-        style={{
-          opacity: fadeAnim,
-          transform: [{ translateY }],
-          width: cardWidth,
-        }}
-      >
+      <Animated.View style={[animatedStyle, { width: cardWidth }]}>
         <PressAnimation onPress={() => onPress(album)}>
           <View style={[styles.gridCard, showRating && { borderColor: ratingColor, borderWidth: 2 }]}>
             <View style={styles.gridImageContainer}>
@@ -164,12 +146,7 @@ const AlbumCard = memo(({
 
   // Renderizado para vista lista
   return (
-    <Animated.View
-      style={{
-        opacity: fadeAnim,
-        transform: [{ translateY }],
-      }}
-    >
+    <Animated.View style={animatedStyle}>
       <PressAnimation onPress={() => onPress(album)}>
         <View style={[
           styles.listCard,
@@ -228,11 +205,10 @@ const AlbumCard = memo(({
       </PressAnimation>
     </Animated.View>
   );
-});
+};
 
-// Estilos (movidos de LibraryScreen)
+// Los estilos se mantienen igual
 const styles = StyleSheet.create({
-  // Grid styles
   gridCard: {
     borderRadius: 12,
     overflow: 'hidden',
@@ -302,8 +278,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-
-  // List styles
   listCard: {
     marginBottom: 12,
     borderRadius: 12,

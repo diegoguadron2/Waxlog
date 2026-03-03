@@ -1,6 +1,11 @@
+// database/Index.js
 import * as SQLite from 'expo-sqlite';
 
 let db = null;
+
+// Cola de operaciones para evitar "database is locked"
+let dbOperationQueue = Promise.resolve();
+let dbConnectionCount = 0;
 
 export const getDB = async () => {
   if (!db) {
@@ -11,25 +16,72 @@ export const getDB = async () => {
   return db;
 };
 
-// 🔴 FUNCIÓN: Para reiniciar la conexión después de restaurar
-export const resetDB = async () => {
-  if (db) {
+// FUNCIÓN: Ejecutar operación en cola
+export const executeDBOperation = async (operation) => {
+  dbOperationQueue = dbOperationQueue.then(async () => {
+    dbConnectionCount++;
+    console.log(`🔌 Iniciando operación BD (${dbConnectionCount})`);
+
+    const startTime = Date.now();
+
     try {
-      await db.closeAsync();
-      console.log('📦 Conexión cerrada');
-    } catch (e) {
-      console.log('⚠️ Error cerrando conexión:', e);
+      const db = await getDB();
+      const result = await operation(db);
+      const duration = Date.now() - startTime;
+      console.log(`✅ Operación completada en ${duration}ms (${dbConnectionCount})`);
+      return result;
+    } catch (error) {
+      console.error('❌ Error en operación BD:', error);
+      throw error;
+    } finally {
+      dbConnectionCount--;
+      // Pequeña pausa para asegurar liberación de recursos
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
-    db = null;
-  }
-  console.log('🔄 Base de datos reiniciada');
+  });
+
+  return dbOperationQueue;
 };
 
-// 🔴 NUEVA FUNCIÓN: Limpiar artistas huérfanos (sin álbumes)
-export const cleanupOrphanArtists = async () => {
-  try {
-    const db = await getDB();
+// FUNCIÓN: Ejecutar transacción
+export const executeTransaction = async (operations) => {
+  return executeDBOperation(async (db) => {
+    try {
+      await db.execAsync('BEGIN TRANSACTION;');
+      console.log('🔒 Transacción iniciada');
 
+      const result = await operations(db);
+
+      await db.execAsync('COMMIT;');
+      console.log('🔓 Transacción completada');
+      return result;
+    } catch (error) {
+      await db.execAsync('ROLLBACK;');
+      console.log('🔓 Transacción cancelada (rollback)');
+      throw error;
+    }
+  });
+};
+
+// 🔴 FUNCIÓN: Para reiniciar la conexión después de restaurar
+export const resetDB = async () => {
+  return executeDBOperation(async () => {
+    if (db) {
+      try {
+        await db.closeAsync();
+        console.log('📦 Conexión cerrada');
+      } catch (e) {
+        console.log('⚠️ Error cerrando conexión:', e);
+      }
+      db = null;
+    }
+    console.log('🔄 Base de datos reiniciada');
+  });
+};
+
+// 🔴 FUNCIÓN: Limpiar artistas huérfanos (sin álbumes)
+export const cleanupOrphanArtists = async () => {
+  return executeDBOperation(async (db) => {
     // Eliminar artistas sin álbumes
     const result = await db.runAsync(`
       DELETE FROM artists 
@@ -38,16 +90,12 @@ export const cleanupOrphanArtists = async () => {
 
     console.log(`🧹 Eliminados ${result.changes || 0} artistas huérfanos`);
     return result.changes || 0;
-  } catch (error) {
-    console.error('Error limpiando artistas huérfanos:', error);
-    return 0;
-  }
+  });
 };
 
-// 🔴 NUEVA FUNCIÓN: Verificar y reparar relaciones
+// 🔴 FUNCIÓN: Verificar y reparar relaciones
 export const verifyRelations = async () => {
-  try {
-    const db = await getDB();
+  return executeDBOperation(async (db) => {
     let fixes = { orphanTracks: 0, orphanAlbums: 0, orphanArtists: 0 };
 
     // Verificar tracks con álbumes inexistentes
@@ -94,17 +142,12 @@ export const verifyRelations = async () => {
 
     console.log('✅ Verificación completada:', fixes);
     return fixes;
-  } catch (error) {
-    console.error('Error verificando relaciones:', error);
-    return { orphanTracks: 0, orphanAlbums: 0, orphanArtists: 0 };
-  }
+  });
 };
 
-// 🔴 NUEVA FUNCIÓN: Recalcular estadísticas de álbumes
+// 🔴 FUNCIÓN: Recalcular estadísticas de álbumes
 export const refreshAlbumStats = async () => {
-  try {
-    const db = await getDB();
-
+  return executeDBOperation(async (db) => {
     // Actualizar total_tracks en albums
     await db.runAsync(`
       UPDATE albums 
@@ -116,13 +159,10 @@ export const refreshAlbumStats = async () => {
 
     console.log('✅ Estadísticas de álbumes actualizadas');
     return true;
-  } catch (error) {
-    console.error('Error actualizando estadísticas:', error);
-    return false;
-  }
+  });
 };
 
-// 🔴 NUEVA FUNCIÓN: Limpieza completa (para usar desde Settings)
+// 🔴 FUNCIÓN: Limpieza completa (para usar desde Settings)
 export const runFullCleanup = async () => {
   console.log('🧹 Iniciando limpieza completa de la base de datos...');
 
@@ -137,356 +177,344 @@ export const runFullCleanup = async () => {
 };
 
 export const initDatabase = async () => {
-  const database = await getDB();
+  return executeDBOperation(async (database) => {
+    // Crear tabla artists
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS artists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        deezer_id TEXT UNIQUE,
+        name TEXT NOT NULL,
+        picture TEXT,
+        picture_local TEXT,
+        biography TEXT,
+        nb_fans INTEGER,
+        genres TEXT,
+        downloaded_at TEXT,
+        last_updated TEXT
+      );
+    `);
 
-  // Crear tabla artists
-  await database.execAsync(`
-    CREATE TABLE IF NOT EXISTS artists (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      deezer_id TEXT UNIQUE,
-      name TEXT NOT NULL,
-      picture TEXT,
-      picture_local TEXT,
-      biography TEXT,
-      nb_fans INTEGER,
-      genres TEXT,
-      downloaded_at TEXT,
-      last_updated TEXT
-    );
-  `);
+    // Crear tabla albums
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS albums (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        deezer_id TEXT UNIQUE,
+        artist_id INTEGER,
+        title TEXT NOT NULL,
+        cover TEXT,
+        cover_small TEXT,
+        cover_medium TEXT,
+        cover_big TEXT,
+        cover_xl TEXT,
+        cover_local TEXT,
+        release_date TEXT,
+        record_type TEXT,
+        total_tracks INTEGER,
+        duration INTEGER,
+        genres TEXT,
+        description TEXT,
+        record_label TEXT,
+        explicit_lyrics INTEGER DEFAULT 0,
+        state TEXT DEFAULT 'to_listen',
+        is_favorite INTEGER DEFAULT 0,
+        user_description TEXT,
+        downloaded_at TEXT,
+        last_updated TEXT,
+        tracklist TEXT,
+        FOREIGN KEY (artist_id) REFERENCES artists (id) ON DELETE CASCADE
+      );
+    `);
 
-  // Crear tabla albums - con todos los campos de Deezer
-  await database.execAsync(`
-    CREATE TABLE IF NOT EXISTS albums (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      deezer_id TEXT UNIQUE,
-      artist_id INTEGER,
-      title TEXT NOT NULL,
-      cover TEXT,
-      cover_small TEXT,
-      cover_medium TEXT,
-      cover_big TEXT,
-      cover_xl TEXT,
-      cover_local TEXT,
-      release_date TEXT,
-      record_type TEXT,
-      total_tracks INTEGER,
-      duration INTEGER,
-      genres TEXT,
-      description TEXT,
-      record_label TEXT,
-      explicit_lyrics INTEGER DEFAULT 0,
-      state TEXT DEFAULT 'to_listen',
-      is_favorite INTEGER DEFAULT 0,
-      user_description TEXT,
-      downloaded_at TEXT,
-      last_updated TEXT,
-      tracklist TEXT,
-      FOREIGN KEY (artist_id) REFERENCES artists (id) ON DELETE CASCADE
-    );
-  `);
+    // Crear tabla tracks
+    await database.execAsync(`
+      CREATE TABLE IF NOT EXISTS tracks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        deezer_id TEXT UNIQUE,
+        album_id INTEGER,
+        title TEXT NOT NULL,
+        track_number INTEGER,
+        duration INTEGER,
+        preview TEXT,
+        lyrics TEXT,
+        isrc TEXT,
+        explicit_lyrics INTEGER DEFAULT 0,
+        contributors TEXT,
+        is_favorite INTEGER DEFAULT 0,
+        rating INTEGER,
+        comment TEXT,
+        last_modified TEXT,
+        FOREIGN KEY (album_id) REFERENCES albums (id) ON DELETE CASCADE
+      );
+    `);
 
-  // Crear tabla tracks
-  await database.execAsync(`
-    CREATE TABLE IF NOT EXISTS tracks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      deezer_id TEXT UNIQUE,
-      album_id INTEGER,
-      title TEXT NOT NULL,
-      track_number INTEGER,
-      duration INTEGER,
-      preview TEXT,
-      lyrics TEXT,
-      isrc TEXT,
-      explicit_lyrics INTEGER DEFAULT 0,
-      contributors TEXT,
-      is_favorite INTEGER DEFAULT 0,
-      rating INTEGER,
-      comment TEXT,
-      last_modified TEXT,
-      FOREIGN KEY (album_id) REFERENCES albums (id) ON DELETE CASCADE
-    );
-  `);
-
-  console.log('✅ Tablas listas');
+    console.log('✅ Tablas listas');
+  });
 };
 
 // Funciones helper para operaciones comunes
 export const dbHelpers = {
 
   saveManualAlbum: async (albumData) => {
-    const db = await getDB();
-    const now = new Date().toISOString();
+    return executeDBOperation(async (db) => {
+      const now = new Date().toISOString();
 
-    // Verificar que el artista existe
-    if (!albumData.artist_id) {
-      throw new Error('El ID del artista es obligatorio');
-    }
+      // Verificar que el artista existe
+      if (!albumData.artist_id) {
+        throw new Error('El ID del artista es obligatorio');
+      }
 
-    // Escapar strings para SQL (reemplazar comillas simples)
-    const escapeSQL = (str) => {
-      if (str === null || str === undefined) return 'NULL';
-      return `'${String(str).replace(/'/g, "''")}'`;
-    };
+      // Escapar strings para SQL (reemplazar comillas simples)
+      const escapeSQL = (str) => {
+        if (str === null || str === undefined) return 'NULL';
+        return `'${String(str).replace(/'/g, "''")}'`;
+      };
 
-    // Construir la query manualmente
-    const deezer_id = albumData.deezer_id === null || albumData.deezer_id === undefined
-      ? 'NULL'
-      : `'${String(albumData.deezer_id).replace(/'/g, "''")}'`;
+      // Construir la query manualmente
+      const deezer_id = albumData.deezer_id === null || albumData.deezer_id === undefined
+        ? 'NULL'
+        : `'${String(albumData.deezer_id).replace(/'/g, "''")}'`;
 
-    const artist_id = Number(albumData.artist_id);
-    const title = escapeSQL(albumData.title || '');
-    const cover = escapeSQL(albumData.cover || '');
-    const release_date = escapeSQL(albumData.release_date || '');
-    const record_type = escapeSQL(albumData.record_type || 'album');
+      const artist_id = Number(albumData.artist_id);
+      const title = escapeSQL(albumData.title || '');
+      const cover = escapeSQL(albumData.cover || '');
+      const release_date = escapeSQL(albumData.release_date || '');
+      const record_type = escapeSQL(albumData.record_type || 'album');
 
-    let genres = 'NULL';
-    if (albumData.genres !== null && albumData.genres !== undefined) {
-      genres = escapeSQL(albumData.genres);
-    }
+      let genres = 'NULL';
+      if (albumData.genres !== null && albumData.genres !== undefined) {
+        genres = escapeSQL(albumData.genres);
+      }
 
-    const downloaded_at = escapeSQL(albumData.downloaded_at || now);
-    const last_updated = escapeSQL(albumData.last_updated || now);
-    const state = escapeSQL(albumData.state || 'to_listen');
+      const downloaded_at = escapeSQL(albumData.downloaded_at || now);
+      const last_updated = escapeSQL(albumData.last_updated || now);
+      const state = escapeSQL(albumData.state || 'to_listen');
 
-    // Query completa
-    const query = `
-      INSERT INTO albums (
-        deezer_id, artist_id, title, cover, release_date, record_type,
-        genres, downloaded_at, last_updated, state
-      ) VALUES (
-        ${deezer_id}, ${artist_id}, ${title}, ${cover}, ${release_date}, 
-        ${record_type}, ${genres}, ${downloaded_at}, ${last_updated}, ${state}
-      );
-    `;
+      // Query completa
+      const query = `
+        INSERT INTO albums (
+          deezer_id, artist_id, title, cover, release_date, record_type,
+          genres, downloaded_at, last_updated, state
+        ) VALUES (
+          ${deezer_id}, ${artist_id}, ${title}, ${cover}, ${release_date}, 
+          ${record_type}, ${genres}, ${downloaded_at}, ${last_updated}, ${state}
+        );
+      `;
 
-    console.log('📝 Query a ejecutar:', query);
+      console.log('📝 Query a ejecutar:', query);
 
-    try {
-      // Ejecutar con execAsync (que no tiene el bug de null)
-      await db.execAsync(query);
+      try {
+        // Ejecutar con execAsync (que no tiene el bug de null)
+        await db.execAsync(query);
 
-      // Obtener el último ID insertado
-      const result = await db.getFirstAsync('SELECT last_insert_rowid() as id');
-      console.log('✅ Álbum guardado con ID:', result.id);
-      return result.id;
+        // Obtener el último ID insertado
+        const result = await db.getFirstAsync('SELECT last_insert_rowid() as id');
+        console.log('✅ Álbum guardado con ID:', result.id);
+        return result.id;
 
-    } catch (error) {
-      console.error('❌ Error en saveManualAlbum:', error);
-      console.error('   Query que falló:', query);
-      throw error;
-    }
+      } catch (error) {
+        console.error('❌ Error en saveManualAlbum:', error);
+        console.error('   Query que falló:', query);
+        throw error;
+      }
+    });
   },
 
   // Canciones - Versión simplificada para guardado manual
   saveManualTrack: async (trackData) => {
-    const db = await getDB();
-    const { album_id, title, track_number, duration } = trackData;
-    const now = new Date().toISOString();
+    return executeDBOperation(async (db) => {
+      const { album_id, title, track_number, duration } = trackData;
+      const now = new Date().toISOString();
 
-    return await db.runAsync(
-      `INSERT INTO tracks (album_id, title, track_number, duration, last_modified)
-     VALUES (?, ?, ?, ?, ?)`,
-      [album_id, title, track_number, duration, now]
-    );
+      return await db.runAsync(
+        `INSERT INTO tracks (album_id, title, track_number, duration, last_modified)
+       VALUES (?, ?, ?, ?, ?)`,
+        [album_id, title, track_number, duration, now]
+      );
+    });
   },
 
   // Artistas
   saveArtist: async (artistData) => {
-    const db = await getDB();
-    const now = new Date().toISOString();
+    return executeDBOperation(async (db) => {
+      const now = new Date().toISOString();
 
-    // Asegurar que deezer_id sea string
-    const deezer_id = artistData.deezer_id ? artistData.deezer_id.toString() : null;
+      // Asegurar que deezer_id sea string
+      const deezer_id = artistData.deezer_id ? artistData.deezer_id.toString() : null;
 
-    if (!deezer_id) {
-      throw new Error('deezer_id es requerido');
-    }
+      if (!deezer_id) {
+        throw new Error('deezer_id es requerido');
+      }
 
-    const existing = await db.getFirstAsync(
-      'SELECT id FROM artists WHERE deezer_id = ?',
-      [deezer_id]
-    );
-
-    if (existing) {
-      await db.runAsync(
-        `UPDATE artists SET 
-          name = ?, picture = ?, last_updated = ?
-         WHERE deezer_id = ?`,
-        [
-          artistData.name,
-          artistData.picture,
-          now,
-          deezer_id
-        ]
+      const existing = await db.getFirstAsync(
+        'SELECT id FROM artists WHERE deezer_id = ?',
+        [deezer_id]
       );
-      return existing.id;
-    } else {
-      const result = await db.runAsync(
-        `INSERT INTO artists 
-         (deezer_id, name, picture, downloaded_at, last_updated)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          deezer_id,
-          artistData.name,
-          artistData.picture,
-          now,
-          now
-        ]
-      );
-      return result.lastInsertRowId;
-    }
-  },
 
-  // Canciones - Versión simplificada para guardado manual
-  saveManualTrack: async (trackData) => {
-    const db = await getDB();
-    await db.runAsync(
-      `INSERT INTO tracks (album_id, title, track_number, duration)
-     VALUES (?, ?, ?, ?)`,
-      [
-        trackData.album_id,
-        trackData.title,
-        trackData.track_number,
-        trackData.duration
-      ]
-    );
+      if (existing) {
+        await db.runAsync(
+          `UPDATE artists SET 
+            name = ?, picture = ?, last_updated = ?
+           WHERE deezer_id = ?`,
+          [
+            artistData.name,
+            artistData.picture,
+            now,
+            deezer_id
+          ]
+        );
+        return existing.id;
+      } else {
+        const result = await db.runAsync(
+          `INSERT INTO artists 
+           (deezer_id, name, picture, downloaded_at, last_updated)
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            deezer_id,
+            artistData.name,
+            artistData.picture,
+            now,
+            now
+          ]
+        );
+        return result.lastInsertRowId;
+      }
+    });
   },
 
   // Álbumes - Versión completa para Deezer
   saveAlbum: async (albumData, artistId) => {
-    const db = await getDB();
-    const now = new Date().toISOString();
-    const deezer_id = albumData.id ? albumData.id.toString() : null;
+    return executeDBOperation(async (db) => {
+      const now = new Date().toISOString();
+      const deezer_id = albumData.id ? albumData.id.toString() : null;
 
-    // Procesar géneros (JSON)
-    let genres = null;
-    if (albumData.genres?.data) {
-      try {
-        genres = JSON.stringify(albumData.genres.data);
-      } catch (e) {
-        console.log('⚠️ Error procesando géneros:', e);
+      // Procesar géneros (JSON)
+      let genres = null;
+      if (albumData.genres?.data) {
+        try {
+          genres = JSON.stringify(albumData.genres.data);
+        } catch (e) {
+          console.log('⚠️ Error procesando géneros:', e);
+        }
       }
-    }
 
-    const existing = await db.getFirstAsync(
-      'SELECT id FROM albums WHERE deezer_id = ?',
-      [deezer_id]
-    );
+      const existing = await db.getFirstAsync(
+        'SELECT id FROM albums WHERE deezer_id = ?',
+        [deezer_id]
+      );
 
-    if (existing) {
-      await db.runAsync(
-        `UPDATE albums SET
-          title = ?, 
-          cover = ?, 
-          cover_small = ?, 
-          cover_medium = ?,
-          cover_big = ?, 
-          cover_xl = ?, 
-          release_date = ?, 
-          record_type = ?,
-          total_tracks = ?,
-          duration = ?,
-          genres = ?,
-          description = ?,
-          record_label = ?,
-          explicit_lyrics = ?, 
-          last_updated = ?
-         WHERE deezer_id = ?`,
-        [
-          albumData.title,
-          albumData.cover_medium,
-          albumData.cover_small,
-          albumData.cover_medium,
-          albumData.cover_big,
-          albumData.cover_xl,
-          albumData.release_date,
-          albumData.record_type,
-          albumData.nb_tracks,
-          albumData.duration,
-          genres,
-          albumData.description,
-          albumData.label,
-          albumData.explicit_lyrics ? 1 : 0,
-          now,
-          deezer_id
-        ]
-      );
-      return existing.id;
-    } else {
-      const result = await db.runAsync(
-        `INSERT INTO albums 
-         (deezer_id, artist_id, title, cover, cover_small, cover_medium, cover_big, cover_xl,
-          release_date, record_type, total_tracks, duration, genres, description, record_label,
-          explicit_lyrics, downloaded_at, last_updated, state)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          deezer_id,
-          artistId,
-          albumData.title,
-          albumData.cover_medium,
-          albumData.cover_small,
-          albumData.cover_medium,
-          albumData.cover_big,
-          albumData.cover_xl,
-          albumData.release_date,
-          albumData.record_type,
-          albumData.nb_tracks,
-          albumData.duration,
-          genres,
-          albumData.description,
-          albumData.label,
-          albumData.explicit_lyrics ? 1 : 0,
-          now,
-          now,
-          'to_listen'
-        ]
-      );
-      return result.lastInsertRowId;
-    }
+      if (existing) {
+        await db.runAsync(
+          `UPDATE albums SET
+            title = ?, 
+            cover = ?, 
+            cover_small = ?, 
+            cover_medium = ?,
+            cover_big = ?, 
+            cover_xl = ?, 
+            release_date = ?, 
+            record_type = ?,
+            total_tracks = ?,
+            duration = ?,
+            genres = ?,
+            description = ?,
+            record_label = ?,
+            explicit_lyrics = ?, 
+            last_updated = ?
+           WHERE deezer_id = ?`,
+          [
+            albumData.title,
+            albumData.cover_medium,
+            albumData.cover_small,
+            albumData.cover_medium,
+            albumData.cover_big,
+            albumData.cover_xl,
+            albumData.release_date,
+            albumData.record_type,
+            albumData.nb_tracks,
+            albumData.duration,
+            genres,
+            albumData.description,
+            albumData.label,
+            albumData.explicit_lyrics ? 1 : 0,
+            now,
+            deezer_id
+          ]
+        );
+        return existing.id;
+      } else {
+        const result = await db.runAsync(
+          `INSERT INTO albums 
+           (deezer_id, artist_id, title, cover, cover_small, cover_medium, cover_big, cover_xl,
+            release_date, record_type, total_tracks, duration, genres, description, record_label,
+            explicit_lyrics, downloaded_at, last_updated, state)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            deezer_id,
+            artistId,
+            albumData.title,
+            albumData.cover_medium,
+            albumData.cover_small,
+            albumData.cover_medium,
+            albumData.cover_big,
+            albumData.cover_xl,
+            albumData.release_date,
+            albumData.record_type,
+            albumData.nb_tracks,
+            albumData.duration,
+            genres,
+            albumData.description,
+            albumData.label,
+            albumData.explicit_lyrics ? 1 : 0,
+            now,
+            now,
+            'to_listen'
+          ]
+        );
+        return result.lastInsertRowId;
+      }
+    });
   },
 
   // Canciones - Versión completa para Deezer
   saveTracks: async (tracksData, albumId) => {
-    const db = await getDB();
-    const now = new Date().toISOString();
-    const results = [];
+    return executeDBOperation(async (db) => {
+      const now = new Date().toISOString();
+      const results = [];
 
-    for (const track of tracksData) {
-      const deezer_id = track.id ? track.id.toString() : null;
+      for (const track of tracksData) {
+        const deezer_id = track.id ? track.id.toString() : null;
 
-      const existing = await db.getFirstAsync(
-        'SELECT id FROM tracks WHERE deezer_id = ?',
-        [deezer_id]
-      );
-
-      if (!existing) {
-        const result = await db.runAsync(
-          `INSERT INTO tracks 
-           (deezer_id, album_id, title, track_number, duration, preview, explicit_lyrics, last_modified)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            deezer_id,
-            albumId,
-            track.title,
-            track.track_position,
-            track.duration,
-            track.preview,
-            track.explicit_lyrics ? 1 : 0,
-            now
-          ]
+        const existing = await db.getFirstAsync(
+          'SELECT id FROM tracks WHERE deezer_id = ?',
+          [deezer_id]
         );
-        results.push(result.lastInsertRowId);
+
+        if (!existing) {
+          const result = await db.runAsync(
+            `INSERT INTO tracks 
+             (deezer_id, album_id, title, track_number, duration, preview, explicit_lyrics, last_modified)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              deezer_id,
+              albumId,
+              track.title,
+              track.track_position,
+              track.duration,
+              track.preview,
+              track.explicit_lyrics ? 1 : 0,
+              now
+            ]
+          );
+          results.push(result.lastInsertRowId);
+        }
       }
-    }
-    return results;
+      return results;
+    });
   },
 
-  // 🔴 NUEVO HELPER: Eliminar álbum y limpiar artistas huérfanos
+  // 🔴 HELPER: Eliminar álbum y limpiar artistas huérfanos
   deleteAlbumAndCleanup: async (albumId) => {
-    const db = await getDB();
-
-    try {
+    return executeTransaction(async (db) => {
       // Obtener info del álbum (para posibles limpiezas futuras)
       const album = await db.getFirstAsync(
         'SELECT artist_id FROM albums WHERE id = ?',
@@ -513,9 +541,97 @@ export const dbHelpers = {
       }
 
       return true;
-    } catch (error) {
-      console.error('Error eliminando álbum:', error);
-      throw error;
-    }
+    });
+  },
+
+  // Buscar álbumes por texto (para búsqueda)
+  searchAlbums: async (searchText) => {
+    return executeDBOperation(async (db) => {
+      return await db.getAllAsync(
+        `SELECT a.*, ar.name as artist_name 
+         FROM albums a
+         LEFT JOIN artists ar ON a.artist_id = ar.id
+         WHERE a.title LIKE ? OR ar.name LIKE ?
+         ORDER BY a.downloaded_at DESC`,
+        [`%${searchText}%`, `%${searchText}%`]
+      );
+    });
+  },
+
+  // Obtener estadísticas
+  getStats: async () => {
+    return executeDBOperation(async (db) => {
+      const totalAlbums = await db.getFirstAsync('SELECT COUNT(*) as count FROM albums');
+      const totalTracks = await db.getFirstAsync('SELECT COUNT(*) as count FROM tracks');
+      const totalArtists = await db.getFirstAsync('SELECT COUNT(*) as count FROM artists');
+
+      const stateCounts = await db.getAllAsync(
+        `SELECT state, COUNT(*) as count FROM albums GROUP BY state`
+      );
+
+      const favoriteCount = await db.getFirstAsync(
+        `SELECT COUNT(*) as count FROM albums WHERE is_favorite = 1`
+      );
+
+      const states = {
+        listened: 0,
+        listening: 0,
+        to_listen: 0
+      };
+
+      stateCounts.forEach(item => {
+        if (states.hasOwnProperty(item.state)) {
+          states[item.state] = item.count;
+        }
+      });
+
+      return {
+        totalAlbums: totalAlbums.count,
+        totalTracks: totalTracks.count,
+        totalArtists: totalArtists.count,
+        favoriteAlbums: favoriteCount.count,
+        ...states
+      };
+    });
+  },
+
+  // Obtener álbumes por estado
+  getAlbumsByState: async (state, sortBy = 'recent_desc') => {
+    return executeDBOperation(async (db) => {
+      let orderClause = 'ORDER BY a.downloaded_at DESC';
+      if (sortBy === 'name_asc') orderClause = 'ORDER BY a.title ASC';
+      if (sortBy === 'name_desc') orderClause = 'ORDER BY a.title DESC';
+      if (sortBy === 'rating_desc') orderClause = 'ORDER BY avg_rating DESC';
+      if (sortBy === 'rating_asc') orderClause = 'ORDER BY avg_rating ASC';
+
+      return await db.getAllAsync(
+        `SELECT 
+          a.*, 
+          ar.name as artist_name,
+          ar.deezer_id as artist_deezer_id,
+          COUNT(t.id) as total_tracks,
+          AVG(t.rating) as avg_rating
+         FROM albums a
+         LEFT JOIN artists ar ON a.artist_id = ar.id
+         LEFT JOIN tracks t ON a.id = t.album_id
+         WHERE a.state = ?
+         GROUP BY a.id
+         ${orderClause}`,
+        [state]
+      );
+    });
   }
+};
+
+export default {
+  getDB,
+  executeDBOperation,
+  executeTransaction,
+  resetDB,
+  initDatabase,
+  cleanupOrphanArtists,
+  verifyRelations,
+  refreshAlbumStats,
+  runFullCleanup,
+  dbHelpers
 };

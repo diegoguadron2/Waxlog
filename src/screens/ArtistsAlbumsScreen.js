@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+// screens/ArtistsAlbumsScreen.js
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
   Dimensions,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getDB } from '../database/Index';
+import { executeDBOperation } from '../database/Index';
 import { tabBarStyle } from '../navigation/AppNavigator';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -40,32 +41,30 @@ const getGenreColor = (genre) => {
   return pastelColors[index];
 };
 
-// 🔴 COMPONENTE SKELETON PARA GÉNEROS
-const GenresSkeleton = () => {
-  return (
-    <View style={styles.scrollContent}>
-      <View style={styles.skeletonSearchContainer} />
-      <View style={styles.skeletonSortContainer} />
-      
-      <View style={styles.skeletonStatsContainer}>
-        <View style={styles.skeletonStatCard} />
-        <View style={styles.skeletonStatCard} />
-        <View style={styles.skeletonStatCard} />
-      </View>
-
-      {[1, 2, 3, 4, 5, 6].map((i) => (
-        <View key={i} style={styles.skeletonGenreCard}>
-          <View style={styles.skeletonGenreColor} />
-          <View style={styles.skeletonGenreInfo}>
-            <View style={styles.skeletonGenreName} />
-            <View style={styles.skeletonGenreCount} />
-          </View>
-          <View style={styles.skeletonGenreArrow} />
-        </View>
-      ))}
+// Componente Skeleton para carga
+const GenresSkeleton = () => (
+  <View style={styles.skeletonContainer}>
+    <View style={styles.skeletonHeader}>
+      <View style={styles.skeletonTitle} />
+      <View style={styles.skeletonSubtitle} />
     </View>
-  );
-};
+    <View style={styles.skeletonSearch} />
+    <View style={styles.skeletonStats}>
+      <View style={styles.skeletonStat} />
+      <View style={styles.skeletonStat} />
+      <View style={styles.skeletonStat} />
+    </View>
+    {[1, 2, 3, 4, 5, 6].map((i) => (
+      <View key={i} style={styles.skeletonCard}>
+        <View style={styles.skeletonCardColor} />
+        <View style={styles.skeletonCardContent}>
+          <View style={styles.skeletonCardTitle} />
+          <View style={styles.skeletonCardSubtitle} />
+        </View>
+      </View>
+    ))}
+  </View>
+);
 
 export default function ArtistsAlbumsScreen({ navigation }) {
   const [genres, setGenres] = useState([]);
@@ -80,8 +79,6 @@ export default function ArtistsAlbumsScreen({ navigation }) {
     mostCommonGenre: '',
   });
 
-  const mountedRef = useRef(true);
-
   useFocusEffect(
     useCallback(() => {
       navigation.getParent()?.setOptions({
@@ -90,17 +87,15 @@ export default function ArtistsAlbumsScreen({ navigation }) {
     }, [navigation])
   );
 
+  // Cargar géneros al montar el componente
   useEffect(() => {
-    mountedRef.current = true;
     loadGenres();
-
-    return () => {
-      mountedRef.current = false;
-    };
   }, []);
 
+  // Filtrar y ordenar cuando cambian los criterios
   useEffect(() => {
-    // Filtrar y ordenar géneros cuando cambia la búsqueda o el ordenamiento
+    if (!genres.length) return;
+
     let filtered = [...genres];
 
     // Filtrar por búsqueda
@@ -114,7 +109,7 @@ export default function ArtistsAlbumsScreen({ navigation }) {
     // Ordenar
     if (sortBy === 'name') {
       filtered.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === 'count') {
+    } else {
       filtered.sort((a, b) => b.count - a.count);
     }
 
@@ -122,76 +117,81 @@ export default function ArtistsAlbumsScreen({ navigation }) {
   }, [genres, searchQuery, sortBy]);
 
   const loadGenres = async () => {
-    setLoading(true);
     try {
-      const db = await getDB();
+      setLoading(true);
+      
+      const result = await executeDBOperation(async (db) => {
+        // Obtener todos los álbumes con géneros
+        const albums = await db.getAllAsync(`
+          SELECT genres FROM albums 
+          WHERE genres IS NOT NULL AND genres != ''
+        `);
 
-      // Obtener todos los géneros únicos y contar álbumes
-      const genreResults = await db.getAllAsync(`
-        SELECT 
-          a.genres,
-          COUNT(*) as album_count
-        FROM albums a
-        WHERE a.genres IS NOT NULL
-        GROUP BY a.genres
-        ORDER BY album_count DESC
-      `);
+        // Procesar géneros
+        const genreCount = new Map();
+        let totalAlbumsWithGenres = 0;
 
-      const genreMap = new Map();
-
-      genreResults.forEach(item => {
-        if (item.genres) {
-          try {
-            const parsed = JSON.parse(item.genres);
-            if (Array.isArray(parsed)) {
-              parsed.forEach(g => {
-                const genreName = typeof g === 'object' ? g.name : g;
-                if (genreName) {
-                  const currentCount = genreMap.get(genreName) || 0;
-                  genreMap.set(genreName, currentCount + parseInt(item.album_count));
-                }
-              });
+        albums.forEach(item => {
+          if (item.genres) {
+            try {
+              const genresData = JSON.parse(item.genres);
+              if (Array.isArray(genresData)) {
+                totalAlbumsWithGenres++;
+                genresData.forEach(g => {
+                  const genreName = typeof g === 'object' ? g.name : g;
+                  if (genreName && genreName.trim()) {
+                    const count = genreCount.get(genreName) || 0;
+                    genreCount.set(genreName, count + 1);
+                  }
+                });
+              }
+            } catch (e) {
+              // Ignorar errores de parseo
+              console.log('Error parsing genres:', e);
             }
-          } catch (e) {
-            // Ignorar errores de parseo
           }
+        });
+
+        // Convertir a array y calcular estadísticas
+        const genresArray = Array.from(genreCount.entries())
+          .map(([name, count]) => ({
+            id: name.toLowerCase().replace(/\s+/g, '-'),
+            name,
+            count,
+            color: getGenreColor(name),
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        // Calcular estadísticas
+        const totalGenres = genresArray.length;
+        let mostCommonGenre = 'Ninguno';
+        
+        if (genresArray.length > 0) {
+          const mostCommon = genresArray.reduce((max, g) => 
+            g.count > max.count ? g : max, genresArray[0]
+          );
+          mostCommonGenre = mostCommon.name;
         }
+
+        return {
+          genres: genresArray,
+          stats: {
+            totalGenres,
+            totalAlbums: totalAlbumsWithGenres,
+            mostCommonGenre,
+          }
+        };
       });
 
-      // Convertir mapa a array
-      const genresList = Array.from(genreMap.entries()).map(([name, count]) => ({
-        id: name.toLowerCase().replace(/\s+/g, '-'),
-        name,
-        count,
-        color: getGenreColor(name),
-      }));
-
-      // Ordenar por nombre por defecto
-      genresList.sort((a, b) => a.name.localeCompare(b.name));
-
-      // Calcular estadísticas
-      const totalGenres = genresList.length;
-      const totalAlbums = genresList.reduce((sum, g) => sum + g.count, 0);
-      const mostCommonGenre = genresList.length > 0 
-        ? genresList.reduce((max, g) => g.count > max.count ? g : max, genresList[0]).name
-        : 'Ninguno';
-
-      if (mountedRef.current) {
-        setGenres(genresList);
-        setFilteredGenres(genresList);
-        setStats({
-          totalGenres,
-          totalAlbums,
-          mostCommonGenre,
-        });
+      if (result) {
+        setGenres(result.genres);
+        setFilteredGenres(result.genres);
+        setStats(result.stats);
       }
-
     } catch (error) {
       console.error('Error cargando géneros:', error);
     } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
@@ -200,6 +200,10 @@ export default function ArtistsAlbumsScreen({ navigation }) {
       genre: genre.name,
       color: genre.color 
     });
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
   };
 
   const toggleSortMenu = () => {
@@ -211,112 +215,6 @@ export default function ArtistsAlbumsScreen({ navigation }) {
     setShowSortMenu(false);
   };
 
-  const clearSearch = () => {
-    setSearchQuery('');
-  };
-
-  // Renderizar tarjeta de género
-  const renderGenreCard = (genre) => {
-    const isLarge = genre.count > 10; // Para dar énfasis a géneros populares
-
-    return (
-      <TouchableOpacity
-        key={genre.id}
-        style={[
-          styles.genreCard,
-          isLarge && styles.largeGenreCard
-        ]}
-        onPress={() => handleGenrePress(genre)}
-        activeOpacity={0.7}
-      >
-        <LinearGradient
-          colors={[genre.color + '40', genre.color + '20']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.genreGradient}
-        />
-        
-        <View style={[styles.genreColorBar, { backgroundColor: genre.color }]} />
-        
-        <View style={styles.genreContent}>
-          <View style={styles.genreHeader}>
-            <Text style={styles.genreName} numberOfLines={1}>
-              {genre.name}
-            </Text>
-            {isLarge && (
-              <View style={[styles.popularBadge, { backgroundColor: genre.color + '40' }]}>
-                <Ionicons name="flame" size={12} color={genre.color} />
-                <Text style={[styles.popularText, { color: genre.color }]}>Popular</Text>
-              </View>
-            )}
-          </View>
-          
-          <View style={styles.genreStats}>
-            <View style={styles.genreCountContainer}>
-              <Ionicons name="albums" size={14} color="rgba(255,255,255,0.6)" />
-              <Text style={styles.genreCount}>
-                {genre.count} {genre.count === 1 ? 'álbum' : 'álbumes'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.genreArrow}>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  // Menú de ordenamiento flotante
-  const renderSortMenu = () => {
-    if (!showSortMenu) return null;
-
-    return (
-      <TouchableOpacity 
-        style={styles.sortMenuOverlay}
-        activeOpacity={1}
-        onPress={() => setShowSortMenu(false)}
-      >
-        <View style={styles.sortMenu}>
-          <TouchableOpacity
-            style={[styles.sortOption, sortBy === 'name' && styles.activeSortOption]}
-            onPress={() => selectSort('name')}
-          >
-            <Ionicons
-              name="text"
-              size={18}
-              color={sortBy === 'name' ? '#9333EA' : 'rgba(255,255,255,0.5)'}
-            />
-            <Text style={[styles.sortOptionText, sortBy === 'name' && styles.activeSortOptionText]}>
-              Nombre
-            </Text>
-            {sortBy === 'name' && (
-              <Ionicons name="checkmark" size={18} color="#9333EA" style={styles.sortOptionCheck} />
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.sortOption, sortBy === 'count' && styles.activeSortOption]}
-            onPress={() => selectSort('count')}
-          >
-            <Ionicons
-              name="bar-chart"
-              size={18}
-              color={sortBy === 'count' ? '#9333EA' : 'rgba(255,255,255,0.5)'}
-            />
-            <Text style={[styles.sortOptionText, sortBy === 'count' && styles.activeSortOptionText]}>
-              Cantidad
-            </Text>
-            {sortBy === 'count' && (
-              <Ionicons name="checkmark" size={18} color="#9333EA" style={styles.sortOptionCheck} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   if (loading) {
     return (
       <View style={styles.container}>
@@ -324,24 +222,57 @@ export default function ArtistsAlbumsScreen({ navigation }) {
           colors={['rgba(255,255,255,0.03)', 'transparent']}
           style={styles.headerGradient}
         />
-        <View style={styles.header}>
-          <Text style={styles.title}>Géneros</Text>
-          <Text style={styles.subtitle}>Explora tu música por categorías</Text>
-        </View>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <GenresSkeleton />
-        </ScrollView>
+        <GenresSkeleton />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {renderSortMenu()}
+      {/* Menú de ordenamiento */}
+      {showSortMenu && (
+        <TouchableOpacity 
+          style={styles.sortMenuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSortMenu(false)}
+        >
+          <View style={styles.sortMenu}>
+            <TouchableOpacity
+              style={[styles.sortOption, sortBy === 'name' && styles.activeSortOption]}
+              onPress={() => selectSort('name')}
+            >
+              <Ionicons
+                name="text"
+                size={18}
+                color={sortBy === 'name' ? '#9333EA' : 'rgba(255,255,255,0.5)'}
+              />
+              <Text style={[styles.sortOptionText, sortBy === 'name' && styles.activeSortOptionText]}>
+                Nombre
+              </Text>
+              {sortBy === 'name' && (
+                <Ionicons name="checkmark" size={18} color="#9333EA" />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sortOption, sortBy === 'count' && styles.activeSortOption]}
+              onPress={() => selectSort('count')}
+            >
+              <Ionicons
+                name="bar-chart"
+                size={18}
+                color={sortBy === 'count' ? '#9333EA' : 'rgba(255,255,255,0.5)'}
+              />
+              <Text style={[styles.sortOptionText, sortBy === 'count' && styles.activeSortOptionText]}>
+                Cantidad
+              </Text>
+              {sortBy === 'count' && (
+                <Ionicons name="checkmark" size={18} color="#9333EA" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Header con gradiente */}
       <LinearGradient
@@ -429,7 +360,54 @@ export default function ArtistsAlbumsScreen({ navigation }) {
             </Text>
           </View>
         ) : (
-          filteredGenres.map(renderGenreCard)
+          filteredGenres.map((genre) => {
+            const isLarge = genre.count > 10;
+            
+            return (
+              <TouchableOpacity
+                key={genre.id}
+                style={[styles.genreCard, isLarge && styles.largeGenreCard]}
+                onPress={() => handleGenrePress(genre)}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={[genre.color + '40', genre.color + '20']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.genreGradient}
+                />
+                
+                <View style={[styles.genreColorBar, { backgroundColor: genre.color }]} />
+                
+                <View style={styles.genreContent}>
+                  <View style={styles.genreHeader}>
+                    <Text style={styles.genreName} numberOfLines={1}>
+                      {genre.name}
+                    </Text>
+                    {isLarge && (
+                      <View style={[styles.popularBadge, { backgroundColor: genre.color + '40' }]}>
+                        <Ionicons name="flame" size={12} color={genre.color} />
+                        <Text style={[styles.popularText, { color: genre.color }]}>Popular</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  <View style={styles.genreStats}>
+                    <View style={styles.genreCountContainer}>
+                      <Ionicons name="albums" size={14} color="rgba(255,255,255,0.6)" />
+                      <Text style={styles.genreCount}>
+                        {genre.count} {genre.count === 1 ? 'álbum' : 'álbumes'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.genreArrow}>
+                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
         
         {/* Espacio extra al final */}
@@ -588,9 +566,6 @@ const styles = StyleSheet.create({
   activeSortOptionText: {
     color: '#9333EA',
   },
-  sortOptionCheck: {
-    marginLeft: 4,
-  },
   scrollView: {
     flex: 1,
   },
@@ -705,9 +680,29 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 40,
   },
-
-  // 🔴 ESTILOS PARA SKELETONS
-  skeletonSearchContainer: {
+  // Estilos para skeleton
+  skeletonContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  skeletonHeader: {
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  skeletonTitle: {
+    width: 150,
+    height: 34,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  skeletonSubtitle: {
+    width: 200,
+    height: 15,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 4,
+  },
+  skeletonSearch: {
     height: 48,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 16,
@@ -715,26 +710,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
-  skeletonSortContainer: {
-    height: 40,
-    width: 100,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 20,
-    marginBottom: 20,
-    alignSelf: 'flex-end',
-  },
-  skeletonStatsContainer: {
+  skeletonStats: {
     flexDirection: 'row',
     marginBottom: 20,
   },
-  skeletonStatCard: {
+  skeletonStat: {
     flex: 1,
     height: 50,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 12,
     marginHorizontal: 4,
   },
-  skeletonGenreCard: {
+  skeletonCard: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
@@ -744,33 +731,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
-  skeletonGenreColor: {
+  skeletonCardColor: {
     width: 6,
     height: 50,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 3,
     marginRight: 16,
   },
-  skeletonGenreInfo: {
+  skeletonCardContent: {
     flex: 1,
   },
-  skeletonGenreName: {
+  skeletonCardTitle: {
     width: '60%',
     height: 18,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 4,
     marginBottom: 8,
   },
-  skeletonGenreCount: {
+  skeletonCardSubtitle: {
     width: '40%',
     height: 14,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 4,
-  },
-  skeletonGenreArrow: {
-    width: 20,
-    height: 20,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 10,
   },
 });

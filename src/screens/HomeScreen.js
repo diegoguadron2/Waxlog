@@ -1,22 +1,22 @@
+// screens/HomeScreen.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
   Dimensions,
-  Image as RNImage,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import ImageColors from 'react-native-image-colors';
-import { getDB } from '../database/Index';
-import { useFocusEffect } from '@react-navigation/native'; 
-const { width, height } = Dimensions.get('window');
+import { executeDBOperation } from '../database/Index';
+import { useFocusEffect } from '@react-navigation/native';
 import { tabBarStyle } from '../navigation/AppNavigator';
+
+const { width } = Dimensions.get('window');
 
 // Colores para calificaciones
 const getRatingColor = (rating) => {
@@ -108,25 +108,92 @@ export default function HomeScreen({ navigation }) {
     };
   }, []);
 
-  useEffect(() => {
-    loadData();
+  // Cargar todos los datos en una sola operación
+  const loadData = useCallback(async () => {
+    if (isLoadingRef.current || !mountedRef.current) return;
 
-    const unsubscribe = navigation.addListener('focus', () => {
-      console.log('📱 HomeScreen enfocada - recargando datos...');
-      loadData();
-    });
+    isLoadingRef.current = true;
+    setLoading(true);
 
-    return unsubscribe;
-  }, [navigation]);
+    try {
+      await executeDBOperation(async (db) => {
+        console.log('🏠 Cargando datos de HomeScreen...');
+        
+        // 1. Cargar estadísticas generales
+        const stats = await db.getFirstAsync(`
+          SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN state = 'listened' THEN 1 ELSE 0 END) as listened,
+            SUM(CASE WHEN state = 'listening' THEN 1 ELSE 0 END) as listening,
+            SUM(CASE WHEN state = 'to_listen' THEN 1 ELSE 0 END) as to_listen,
+            SUM(is_favorite) as favorites
+          FROM albums
+        `);
 
-  useFocusEffect(
-    useCallback(() => {
-      navigation.getParent()?.setOptions({
-        tabBarStyle: tabBarStyle
+        if (mountedRef.current) {
+          setTotalStats({
+            total: stats?.total || 0,
+            listened: stats?.listened || 0,
+            listening: stats?.listening || 0,
+            to_listen: stats?.to_listen || 0,
+            favorites: stats?.favorites || 0
+          });
+          console.log('📊 Estadísticas cargadas:', stats);
+        }
+
+        // 2. Cargar álbum destacado (aleatorio)
+        const featured = await db.getFirstAsync(`
+          SELECT a.*, ar.name as artist_name
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          WHERE a.cover IS NOT NULL
+          ORDER BY RANDOM()
+          LIMIT 1
+        `);
+
+        if (featured && mountedRef.current) {
+          setFeaturedAlbum(featured);
+          console.log('⭐ Álbum destacado cargado:', featured.title);
+
+          // Extraer color de la portada
+          const color = await getAlbumColor(featured);
+          setBackgroundColor(color);
+
+          // Calcular rating promedio del álbum
+          const ratingResult = await db.getFirstAsync(
+            'SELECT AVG(rating) as avg_rating FROM tracks WHERE album_id = ? AND rating IS NOT NULL',
+            [featured.id]
+          );
+          setAlbumRating(ratingResult?.avg_rating || 0);
+        }
+
+        // 3. Cargar álbumes para el mosaico (15 aleatorios)
+        const albums = await db.getAllAsync(`
+          SELECT a.*, ar.name as artist_name
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          WHERE a.cover IS NOT NULL 
+            AND a.state IN ('to_listen', 'listening')
+          ORDER BY RANDOM()
+          LIMIT 15
+        `);
+
+        if (mountedRef.current) {
+          setMosaicAlbums(albums);
+          console.log('🖼️ Mosaico cargado:', albums.length, 'álbumes');
+        }
       });
-    }, [navigation])
-  );
+    } catch (error) {
+      console.error('❌ Error cargando datos:', error);
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+      }
+      isLoadingRef.current = false;
+    }
+  }, []);
 
+  // Función para obtener color del álbum
   const getAlbumColor = async (album) => {
     if (!album?.cover) return '#000000';
 
@@ -151,94 +218,19 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const calculateAlbumRating = async (albumId) => {
-    try {
-      const db = await getDB();
-      const result = await db.getFirstAsync(
-        'SELECT AVG(rating) as avg_rating FROM tracks WHERE album_id = ? AND rating IS NOT NULL',
-        [albumId]
-      );
-      return result?.avg_rating || 0;
-    } catch (error) {
-      console.error('Error calculando rating:', error);
-      return 0;
-    }
-  };
+  // Cargar datos al montar
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  const loadData = async () => {
-    if (isLoadingRef.current || !mountedRef.current) return;
-
-    isLoadingRef.current = true;
-    setLoading(true);
-
-    try {
-      const db = await getDB();
-
-      // Cargar estadísticas generales
-      const stats = await db.getFirstAsync(`
-        SELECT 
-          COUNT(*) as total,
-          SUM(CASE WHEN state = 'listened' THEN 1 ELSE 0 END) as listened,
-          SUM(CASE WHEN state = 'listening' THEN 1 ELSE 0 END) as listening,
-          SUM(CASE WHEN state = 'to_listen' THEN 1 ELSE 0 END) as to_listen,
-          SUM(is_favorite) as favorites
-        FROM albums
-      `);
-
-      setTotalStats({
-        total: stats?.total || 0,
-        listened: stats?.listened || 0,
-        listening: stats?.listening || 0,
-        to_listen: stats?.to_listen || 0,
-        favorites: stats?.favorites || 0
+  // Restaurar tabBarStyle al enfocar
+  useFocusEffect(
+    useCallback(() => {
+      navigation.getParent()?.setOptions({
+        tabBarStyle: tabBarStyle
       });
-
-      // Cargar álbum destacado (aleatorio entre todos los álbumes)
-      const featured = await db.getFirstAsync(`
-        SELECT a.*, ar.name as artist_name
-        FROM albums a
-        LEFT JOIN artists ar ON a.artist_id = ar.id
-        WHERE a.cover IS NOT NULL
-        ORDER BY RANDOM()
-        LIMIT 1
-      `);
-
-      if (featured && mountedRef.current) {
-        setFeaturedAlbum(featured);
-
-        // El fondo se toma del álbum destacado
-        const color = await getAlbumColor(featured);
-        setBackgroundColor(color);
-
-        // Calcular rating promedio del álbum destacado
-        const rating = await calculateAlbumRating(featured.id);
-        setAlbumRating(rating);
-      }
-
-      // Cargar álbumes para el mosaico (15 álbumes aleatorios con portada)
-      const albums = await db.getAllAsync(`
-        SELECT a.*, ar.name as artist_name
-        FROM albums a
-        LEFT JOIN artists ar ON a.artist_id = ar.id
-        WHERE a.cover IS NOT NULL 
-          AND a.state IN ('to_listen', 'listening')
-        ORDER BY RANDOM()
-        LIMIT 15
-      `);
-
-      if (mountedRef.current) {
-        setMosaicAlbums(albums);
-      }
-
-    } catch (error) {
-      console.error('Error cargando datos:', error);
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-      isLoadingRef.current = false;
-    }
-  };
+    }, [navigation])
+  );
 
   // Renderizar mosaico
   const renderMosaic = () => {
@@ -353,7 +345,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Álbum destacado - ahora con aspectRatio 1:1 (cuadrado) */}
+        {/* Álbum destacado */}
         {featuredAlbum && (
           <View style={styles.featuredSection}>
             <View style={styles.sectionHeader}>
@@ -381,7 +373,6 @@ export default function HomeScreen({ navigation }) {
                 contentFit="cover"
               />
 
-              {/* Gradiente para legibilidad */}
               <LinearGradient
                 colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
                 style={styles.featuredGradient}
@@ -489,6 +480,7 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
+// ... (todos los styles se mantienen igual)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -587,7 +579,7 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
 
-  // Estilos del álbum destacado - ahora con aspectRatio 1:1
+  // Estilos del álbum destacado
   featuredSection: {
     marginBottom: 30,
     paddingHorizontal: 20,

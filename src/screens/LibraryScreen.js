@@ -1,11 +1,9 @@
 // screens/LibraryScreen.js
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  Dimensions,
   RefreshControl,
   FlatList,
 } from 'react-native';
@@ -27,9 +25,6 @@ import { useLibraryData } from '../hooks/useLibraryData';
 // Constantes
 import { PADDING_HORIZONTAL, GAP, CARD_WIDTH } from '../constants/layout';
 
-const { width } = Dimensions.get('window');
-const COLUMN_COUNT = 2;
-
 export default function LibraryScreen({ navigation }) {
   const [viewMode, setViewMode] = useState('grid');
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -41,7 +36,6 @@ export default function LibraryScreen({ navigation }) {
     { id: 'to_listen', label: 'Por escuchar', icon: 'time', color: '#FBBF24' },
   ];
 
-  // Usar el hook personalizado
   const {
     filteredAlbums,
     activeTab,
@@ -139,7 +133,11 @@ export default function LibraryScreen({ navigation }) {
     </>
   ), [tabCounts, activeTab, sortOptions, sortBy, showSortMenu, viewMode, navigation, handleLocalTabChange]);
 
-  // Si está cargando por primera vez, mostrar skeletons
+  // Log para debugging
+  useEffect(() => {
+    console.log(`📊 Pestaña activa: ${activeTab} - Álbumes mostrados: ${filteredAlbums.length}`);
+  }, [activeTab, filteredAlbums]);
+
   if (loading && filteredAlbums.length === 0) {
     return (
       <View style={styles.container}>

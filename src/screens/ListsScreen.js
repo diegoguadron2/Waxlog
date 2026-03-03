@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// screens/ListsScreen.js
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,15 +8,15 @@ import {
   ActivityIndicator,
   StyleSheet,
   Dimensions,
-  Image as RNImage,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import ImageColors from 'react-native-image-colors';
-import { getDB, verifyRelations } from '../database/Index';
+import { executeDBOperation } from '../database/Index';
 import { useFocusEffect } from '@react-navigation/native';
 import { tabBarStyle } from '../navigation/AppNavigator';
+
 const { width, height } = Dimensions.get('window');
 
 // Colores pastel del 1 al 10
@@ -36,181 +37,125 @@ const formatRating = (rating) => {
   return rating.toFixed(1);
 };
 
-// 🔴 COMPONENTE SKELETON PARA LISTAS
-const ListsSkeleton = () => {
-  return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-      {/* Random album skeleton */}
-      <View style={styles.skeletonSection}>
-        <View style={styles.skeletonSectionHeader}>
-          <View style={styles.skeletonSectionIcon} />
-          <View style={styles.skeletonSectionTitle} />
-        </View>
-        <View style={styles.skeletonRandomAlbumCard} />
-        <View style={styles.skeletonRandomAlbumButton} />
+// Componente Skeleton para listas
+const ListsSkeleton = () => (
+  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
+    {/* Random album skeleton */}
+    <View style={styles.skeletonSection}>
+      <View style={styles.skeletonSectionHeader}>
+        <View style={styles.skeletonSectionIcon} />
+        <View style={styles.skeletonSectionTitle} />
       </View>
+      <View style={styles.skeletonRandomAlbumCard} />
+      <View style={styles.skeletonRandomAlbumButton} />
+    </View>
 
-      {/* Recent albums skeleton */}
-      <View style={styles.skeletonSection}>
+    {/* Recent albums skeleton */}
+    <View style={styles.skeletonSection}>
+      <View style={styles.skeletonSectionHeader}>
+        <View style={styles.skeletonSectionIcon} />
+        <View style={styles.skeletonSectionTitle} />
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <View key={`recent-${i}`} style={styles.skeletonAlbumCard} />
+        ))}
+      </ScrollView>
+    </View>
+
+    {/* Decades skeleton */}
+    {['2020s', '2010s', '2000s', '90s', '80s'].map((decade) => (
+      <View key={decade} style={styles.skeletonSection}>
         <View style={styles.skeletonSectionHeader}>
           <View style={styles.skeletonSectionIcon} />
-          <View style={styles.skeletonSectionTitle} />
+          <View style={[styles.skeletonSectionTitle, { width: 60 }]} />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {[1, 2, 3, 4, 5].map((i) => (
-            <View key={`recent-${i}`} style={styles.skeletonAlbumCard} />
+            <View key={`${decade}-${i}`} style={styles.skeletonAlbumCard} />
           ))}
         </ScrollView>
       </View>
+    ))}
 
-      {/* Decades skeleton */}
-      {['2020s', '2010s', '2000s', '90s', '80s'].map((decade) => (
-        <View key={decade} style={styles.skeletonSection}>
-          <View style={styles.skeletonSectionHeader}>
-            <View style={styles.skeletonSectionIcon} />
-            <View style={[styles.skeletonSectionTitle, { width: 60 }]} />
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <View key={`${decade}-${i}`} style={styles.skeletonAlbumCard} />
-            ))}
-          </ScrollView>
+    {/* Anniversaries skeleton */}
+    <View style={styles.skeletonSection}>
+      <View style={styles.skeletonSectionHeader}>
+        <View style={styles.skeletonSectionIcon} />
+        <View style={styles.skeletonSectionTitle} />
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {[1, 2, 3, 4, 5].map((i) => (
+          <View key={`anniv-${i}`} style={styles.skeletonAlbumCard} />
+        ))}
+      </ScrollView>
+    </View>
+  </ScrollView>
+);
+
+// Componente Skeleton para estadísticas
+const StatsSkeleton = () => (
+  <ScrollView
+    showsVerticalScrollIndicator={false}
+    contentContainerStyle={[styles.tabContent, styles.statsTabContent]}
+  >
+    {/* Stats grid skeleton - primera fila */}
+    <View style={styles.statsGrid}>
+      {[1, 2, 3].map((i) => (
+        <View key={`stat1-${i}`} style={styles.skeletonStatCard}>
+          <View style={styles.skeletonStatIcon} />
+          <View style={styles.skeletonStatValue} />
+          <View style={styles.skeletonStatLabel} />
         </View>
       ))}
+    </View>
 
-      {/* Anniversaries skeleton */}
-      <View style={styles.skeletonSection}>
-        <View style={styles.skeletonSectionHeader}>
-          <View style={styles.skeletonSectionIcon} />
-          <View style={styles.skeletonSectionTitle} />
+    {/* Stats grid skeleton - segunda fila */}
+    <View style={styles.statsGrid}>
+      {[1, 2, 3].map((i) => (
+        <View key={`stat2-${i}`} style={styles.skeletonStatCard}>
+          <View style={styles.skeletonStatIcon} />
+          <View style={styles.skeletonStatValue} />
+          <View style={styles.skeletonStatLabel} />
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={`anniv-${i}`} style={styles.skeletonAlbumCard} />
-          ))}
-        </ScrollView>
-      </View>
+      ))}
+    </View>
 
-      {/* Forgotten skeleton */}
-      <View style={styles.skeletonSection}>
-        <View style={styles.skeletonSectionHeader}>
-          <View style={styles.skeletonSectionIcon} />
-          <View style={styles.skeletonSectionTitle} />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={`forgotten-${i}`} style={styles.skeletonAlbumCard} />
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Top rated skeleton */}
-      <View style={styles.skeletonSection}>
-        <View style={styles.skeletonSectionHeader}>
-          <View style={styles.skeletonSectionIcon} />
-          <View style={styles.skeletonSectionTitle} />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={`top-${i}`} style={styles.skeletonAlbumCard} />
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Pending skeleton */}
-      <View style={styles.skeletonSection}>
-        <View style={styles.skeletonSectionHeader}>
-          <View style={styles.skeletonSectionIcon} />
-          <View style={styles.skeletonSectionTitle} />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={`pending-${i}`} style={styles.skeletonAlbumCard} />
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Completed skeleton */}
-      <View style={styles.skeletonSection}>
-        <View style={styles.skeletonSectionHeader}>
-          <View style={styles.skeletonSectionIcon} />
-          <View style={styles.skeletonSectionTitle} />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {[1, 2, 3, 4, 5].map((i) => (
-            <View key={`completed-${i}`} style={styles.skeletonAlbumCard} />
-          ))}
-        </ScrollView>
-      </View>
-    </ScrollView>
-  );
-};
-
-// 🔴 COMPONENTE SKELETON PARA ESTADÍSTICAS
-const StatsSkeleton = () => {
-  return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[styles.tabContent, styles.statsTabContent]}
-    >
-      {/* Stats grid skeleton - primera fila */}
-      <View style={styles.statsGrid}>
-        {[1, 2, 3].map((i) => (
-          <View key={`stat1-${i}`} style={styles.skeletonStatCard}>
-            <View style={styles.skeletonStatIcon} />
-            <View style={styles.skeletonStatValue} />
-            <View style={styles.skeletonStatLabel} />
+    {/* Chart skeleton */}
+    <View style={styles.skeletonChartContainer}>
+      <View style={styles.skeletonChartTitle} />
+      <View style={styles.barChart}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+          <View key={`bar-${i}`} style={styles.barColumn}>
+            <View style={[styles.skeletonBar, { height: Math.random() * 100 + 50 }]} />
+            <View style={styles.skeletonBarLabel} />
+            <View style={styles.skeletonBarCount} />
           </View>
         ))}
       </View>
+    </View>
 
-      {/* Stats grid skeleton - segunda fila */}
-      <View style={styles.statsGrid}>
-        {[1, 2, 3].map((i) => (
-          <View key={`stat2-${i}`} style={styles.skeletonStatCard}>
-            <View style={styles.skeletonStatIcon} />
-            <View style={styles.skeletonStatValue} />
-            <View style={styles.skeletonStatLabel} />
-          </View>
-        ))}
+    {/* Completion detail skeleton */}
+    <View style={styles.skeletonCompletionDetail}>
+      <View style={styles.completionHeader}>
+        <View style={styles.skeletonCompletionTitle} />
+        <View style={styles.skeletonCompletionValue} />
       </View>
-
-      {/* Chart skeleton */}
-      <View style={styles.skeletonChartContainer}>
-        <View style={styles.skeletonChartTitle} />
-        <View style={styles.barChart}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
-            <View key={`bar-${i}`} style={styles.skeletonBarColumn}>
-              <View style={[styles.skeletonBar, { height: Math.random() * 100 + 50 }]} />
-              <View style={styles.skeletonBarLabel} />
-              <View style={styles.skeletonBarCount} />
-            </View>
-          ))}
-        </View>
+      <View style={styles.skeletonProgressContainer}>
+        <View style={[styles.skeletonProgressBar, { width: '60%' }]} />
       </View>
+      <View style={styles.skeletonCompletionSubtext} />
+    </View>
 
-      {/* Completion detail skeleton */}
-      <View style={styles.skeletonCompletionDetail}>
-        <View style={styles.completionHeader}>
-          <View style={styles.skeletonCompletionTitle} />
-          <View style={styles.skeletonCompletionValue} />
-        </View>
-        <View style={styles.skeletonProgressContainer}>
-          <View style={[styles.skeletonProgressBar, { width: '60%' }]} />
-        </View>
-        <View style={styles.skeletonCompletionSubtext} />
-      </View>
-
-      <View style={styles.bottomSpacer} />
-    </ScrollView>
-  );
-};
+    <View style={styles.bottomSpacer} />
+  </ScrollView>
+);
 
 export default function ListsScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('lists');
-  const [loading, setLoading] = useState(true);
   const [randomAlbumLoading, setRandomAlbumLoading] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState('#000000');
+  const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({
     totalArtists: 0,
@@ -219,7 +164,8 @@ export default function ListsScreen({ navigation }) {
     totalRatedTracks: 0,
     avgRating: 0,
     completionRate: 0,
-    ratingDistribution: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 1-10
+    ratedPercentage: 0,
+    ratingDistribution: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   });
 
   const [lists, setLists] = useState({
@@ -240,22 +186,10 @@ export default function ListsScreen({ navigation }) {
 
   const [randomAlbum, setRandomAlbum] = useState(null);
 
-  const mountedRef = useRef(true);
-  const isLoadingRef = useRef(false);
-  const isFocusedRef = useRef(true);
-
   const tabs = [
     { id: 'lists', label: 'Listas', icon: 'list' },
     { id: 'stats', label: 'Estadísticas', icon: 'stats-chart' },
   ];
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
 
   useFocusEffect(
     useCallback(() => {
@@ -265,7 +199,12 @@ export default function ListsScreen({ navigation }) {
     }, [navigation])
   );
 
-  // Función para extraer color de la imagen (igual que en HomeScreen)
+  // Cargar todos los datos al montar
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  // Función para extraer color de la imagen
   const getAlbumColor = async (album) => {
     if (!album?.cover) return '#000000';
 
@@ -290,70 +229,26 @@ export default function ListsScreen({ navigation }) {
     }
   };
 
-  // 🔴 CORREGIDO: Siempre recargar al recibir foco
-  useFocusEffect(
-    useCallback(() => {
-      console.log('📱 ListsScreen enfocada - recargando datos...');
-      loadAllData();
-
-      isFocusedRef.current = true;
-
-      return () => {
-        isFocusedRef.current = false;
-      };
-    }, []) // Sin dependencias para que siempre se ejecute al recibir foco
-  );
-
-  const loadAllData = async () => {
-    if (isLoadingRef.current || !mountedRef.current) return;
-
-    isLoadingRef.current = true;
-    setLoading(true);
-
+  // Cargar álbum aleatorio
+  const loadRandomAlbum = async () => {
     try {
-      const db = await getDB();
-
-      // Verificar y reparar relaciones antes de cargar
-      await verifyRelations();
-
-      // Cargar todas las listas
-      await loadLists(db);
-
-      // Cargar estadísticas
-      await loadStats(db);
-
-      // Cargar álbum aleatorio
-      await loadRandomAlbum(db);
-
-    } catch (error) {
-      console.error('Error cargando datos:', error);
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-      isLoadingRef.current = false;
-    }
-  };
-
-  const loadRandomAlbum = async (db) => {
-    try {
-      const album = await db.getFirstAsync(`
-        SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
-        FROM albums a
-        LEFT JOIN artists ar ON a.artist_id = ar.id
-        WHERE a.state IN ('to_listen', 'listening') AND a.cover IS NOT NULL
-        ORDER BY RANDOM()
-        LIMIT 1
-      `);
+      const album = await executeDBOperation(async (db) => {
+        return await db.getFirstAsync(`
+          SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          WHERE a.state IN ('to_listen', 'listening') AND a.cover IS NOT NULL
+          ORDER BY RANDOM()
+          LIMIT 1
+        `);
+      });
 
       setRandomAlbum(album);
 
-      // Actualizar color de fondo basado en el álbum aleatorio
       if (album) {
         const color = await getAlbumColor(album);
         setBackgroundColor(color);
       } else {
-        // 🔴 Si no hay álbum aleatorio, establecer un color por defecto
         setBackgroundColor('#1a1a1a');
       }
     } catch (error) {
@@ -362,216 +257,239 @@ export default function ListsScreen({ navigation }) {
     }
   };
 
-  const handleRandomAlbumPress = async () => {
-    setRandomAlbumLoading(true);
+  // Cargar todas las listas
+  const loadLists = async () => {
     try {
-      const db = await getDB();
-      await loadRandomAlbum(db);
+      const result = await executeDBOperation(async (db) => {
+        // Álbumes recientes (últimos 10 agregados)
+        const recent = await db.getAllAsync(`
+          SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          WHERE a.cover IS NOT NULL
+          ORDER BY a.downloaded_at DESC
+          LIMIT 10
+        `);
+
+        // Por década
+        const byDecade = {
+          '80s': [],
+          '90s': [],
+          '2000s': [],
+          '2010s': [],
+          '2020s': [],
+        };
+
+        const decadeAlbums = await db.getAllAsync(`
+          SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
+                 strftime('%Y', a.release_date) as release_year
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          WHERE a.release_date IS NOT NULL AND a.cover IS NOT NULL
+          ORDER BY a.release_date DESC
+        `);
+
+        decadeAlbums.forEach(album => {
+          const year = parseInt(album.release_year);
+          if (year >= 2020) byDecade['2020s'].push(album);
+          else if (year >= 2010) byDecade['2010s'].push(album);
+          else if (year >= 2000) byDecade['2000s'].push(album);
+          else if (year >= 1990) byDecade['90s'].push(album);
+          else if (year >= 1980) byDecade['80s'].push(album);
+        });
+
+        // Limitar a 5 por década
+        Object.keys(byDecade).forEach(key => {
+          byDecade[key] = byDecade[key].slice(0, 5);
+        });
+
+        // Aniversarios (álbumes que cumplen años este mes)
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth() + 1;
+
+        const anniversaries = await db.getAllAsync(`
+          SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
+                 strftime('%Y', a.release_date) as release_year
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          WHERE a.release_date IS NOT NULL 
+            AND a.cover IS NOT NULL
+            AND strftime('%m', a.release_date) = ?
+          ORDER BY a.release_date DESC
+          LIMIT 10
+        `, [currentMonth.toString().padStart(2, '0')]);
+
+        // Olvidados (álbumes en 'to_listen' con más de 30 días)
+        const forgotten = await db.getAllAsync(`
+          SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          WHERE a.state = 'to_listen' 
+            AND a.cover IS NOT NULL
+            AND julianday('now') - julianday(a.downloaded_at) > 30
+          ORDER BY a.downloaded_at ASC
+          LIMIT 10
+        `);
+
+        // Mejor calificados
+        const topRated = await db.getAllAsync(`
+          SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
+                 AVG(t.rating) as avg_rating
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          LEFT JOIN tracks t ON a.id = t.album_id
+          WHERE a.cover IS NOT NULL
+          GROUP BY a.id
+          HAVING avg_rating >= 8
+          ORDER BY avg_rating DESC
+          LIMIT 10
+        `);
+
+        // Pendientes
+        const pending = await db.getAllAsync(`
+          SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          WHERE a.state = 'to_listen' AND a.cover IS NOT NULL
+          ORDER BY a.downloaded_at DESC
+          LIMIT 10
+        `);
+
+        // Completos
+        const completed = await db.getAllAsync(`
+          SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
+                 COUNT(t.id) as total_tracks,
+                 COUNT(CASE WHEN t.rating IS NOT NULL THEN 1 END) as rated_tracks
+          FROM albums a
+          LEFT JOIN artists ar ON a.artist_id = ar.id
+          LEFT JOIN tracks t ON a.id = t.album_id
+          WHERE a.cover IS NOT NULL
+          GROUP BY a.id
+          HAVING total_tracks > 0 AND total_tracks = rated_tracks
+          ORDER BY a.downloaded_at DESC
+          LIMIT 10
+        `);
+
+        return {
+          recentAlbums: recent,
+          byDecade,
+          anniversaries,
+          forgotten,
+          topRated,
+          pending,
+          completed,
+        };
+      });
+
+      setLists(result);
     } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setRandomAlbumLoading(false);
+      console.error('Error cargando listas:', error);
     }
   };
 
-  const loadLists = async (db) => {
-    // Álbumes recientes (últimos 10 agregados)
-    const recent = await db.getAllAsync(`
-      SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
-      FROM albums a
-      LEFT JOIN artists ar ON a.artist_id = ar.id
-      WHERE a.cover IS NOT NULL
-      ORDER BY a.downloaded_at DESC
-      LIMIT 10
-    `);
+  // Cargar estadísticas
+  const loadStats = async () => {
+    try {
+      const result = await executeDBOperation(async (db) => {
+        // Estadísticas generales
+        const generalStats = await db.getFirstAsync(`
+          SELECT 
+            (SELECT COUNT(*) FROM artists) as totalArtists,
+            (SELECT COUNT(*) FROM albums) as totalAlbums,
+            (SELECT COUNT(*) FROM tracks t
+             INNER JOIN albums a ON t.album_id = a.id) as totalTracks,
+            (SELECT COUNT(*) FROM tracks t
+             INNER JOIN albums a ON t.album_id = a.id
+             WHERE t.rating IS NOT NULL) as totalRatedTracks,
+            (SELECT AVG(t.rating) FROM tracks t
+             INNER JOIN albums a ON t.album_id = a.id
+             WHERE t.rating IS NOT NULL) as avgRating
+        `);
 
-    // Por década
-    const byDecade = {
-      '80s': [],
-      '90s': [],
-      '2000s': [],
-      '2010s': [],
-      '2020s': [],
-    };
+        // Distribución por álbumes
+        const albumRatings = await db.getAllAsync(`
+          SELECT 
+            a.id,
+            AVG(t.rating) as album_avg_rating
+          FROM albums a
+          INNER JOIN tracks t ON a.id = t.album_id
+          WHERE t.rating IS NOT NULL
+          GROUP BY a.id
+          HAVING album_avg_rating IS NOT NULL
+        `);
 
-    const decadeAlbums = await db.getAllAsync(`
-      SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
-             strftime('%Y', a.release_date) as release_year
-      FROM albums a
-      LEFT JOIN artists ar ON a.artist_id = ar.id
-      WHERE a.release_date IS NOT NULL AND a.cover IS NOT NULL
-      ORDER BY a.release_date DESC
-    `);
+        const distribution = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-    decadeAlbums.forEach(album => {
-      const year = parseInt(album.release_year);
-      if (year >= 2020) byDecade['2020s'].push(album);
-      else if (year >= 2010) byDecade['2010s'].push(album);
-      else if (year >= 2000) byDecade['2000s'].push(album);
-      else if (year >= 1990) byDecade['90s'].push(album);
-      else if (year >= 1980) byDecade['80s'].push(album);
-    });
+        albumRatings.forEach(item => {
+          if (item.album_avg_rating) {
+            const ratingFloor = Math.floor(item.album_avg_rating);
+            if (ratingFloor >= 1 && ratingFloor <= 10) {
+              distribution[ratingFloor - 1] += 1;
+            }
+          }
+        });
 
-    // Limitar a 5 por década
-    Object.keys(byDecade).forEach(key => {
-      byDecade[key] = byDecade[key].slice(0, 5);
-    });
+        // Tasa de completitud
+        const completionStats = await db.getFirstAsync(`
+          SELECT 
+            COUNT(*) as totalAlbums,
+            COUNT(CASE WHEN a.id IN (
+              SELECT album_id 
+              FROM tracks t
+              GROUP BY album_id 
+              HAVING COUNT(*) = COUNT(CASE WHEN t.rating IS NOT NULL THEN 1 END)
+            ) THEN 1 END) as completedAlbums
+          FROM albums a
+        `);
 
-    // Aniversarios (álbumes que cumplen años este mes)
-    const currentDate = new Date();
-    const currentMonth = currentDate.getMonth() + 1;
+        const completionRate = completionStats?.totalAlbums > 0
+          ? Math.round((completionStats.completedAlbums / completionStats.totalAlbums) * 100)
+          : 0;
 
-    const anniversaries = await db.getAllAsync(`
-      SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
-             strftime('%Y', a.release_date) as release_year,
-             strftime('%m', a.release_date) as release_month,
-             strftime('%d', a.release_date) as release_day
-      FROM albums a
-      LEFT JOIN artists ar ON a.artist_id = ar.id
-      WHERE a.release_date IS NOT NULL 
-        AND a.cover IS NOT NULL
-        AND strftime('%m', a.release_date) = ?
-      ORDER BY a.release_date DESC
-      LIMIT 10
-    `, [currentMonth.toString().padStart(2, '0')]);
+        const ratedPercentage = generalStats?.totalTracks > 0
+          ? Math.round((generalStats.totalRatedTracks / generalStats.totalTracks) * 100)
+          : 0;
 
-    // Olvidados (álbumes en 'to_listen' con más de 30 días)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return {
+          totalArtists: generalStats?.totalArtists || 0,
+          totalAlbums: generalStats?.totalAlbums || 0,
+          totalTracks: generalStats?.totalTracks || 0,
+          totalRatedTracks: generalStats?.totalRatedTracks || 0,
+          avgRating: generalStats?.avgRating ? parseFloat(generalStats.avgRating).toFixed(1) : '0.0',
+          completionRate,
+          ratedPercentage,
+          ratingDistribution: distribution,
+        };
+      });
 
-    const forgotten = await db.getAllAsync(`
-      SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
-             julianday('now') - julianday(a.downloaded_at) as days_old
-      FROM albums a
-      LEFT JOIN artists ar ON a.artist_id = ar.id
-      WHERE a.state = 'to_listen' 
-        AND a.cover IS NOT NULL
-        AND julianday('now') - julianday(a.downloaded_at) > 30
-      ORDER BY a.downloaded_at ASC
-      LIMIT 10
-    `);
-
-    // Mejor calificados (mantener)
-    const topRated = await db.getAllAsync(`
-      SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
-             AVG(t.rating) as avg_rating
-      FROM albums a
-      LEFT JOIN artists ar ON a.artist_id = ar.id
-      LEFT JOIN tracks t ON a.id = t.album_id
-      GROUP BY a.id
-      HAVING avg_rating >= 8
-      ORDER BY avg_rating DESC
-      LIMIT 10
-    `);
-
-    // Pendientes (mantener)
-    const pending = await db.getAllAsync(`
-      SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
-      FROM albums a
-      LEFT JOIN artists ar ON a.artist_id = ar.id
-      WHERE a.state = 'to_listen' AND a.cover IS NOT NULL
-      ORDER BY a.downloaded_at DESC
-      LIMIT 10
-    `);
-
-    // Completos (mantener)
-    const completed = await db.getAllAsync(`
-      SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
-             COUNT(t.id) as total_tracks,
-             COUNT(CASE WHEN t.rating IS NOT NULL THEN 1 END) as rated_tracks
-      FROM albums a
-      LEFT JOIN artists ar ON a.artist_id = ar.id
-      LEFT JOIN tracks t ON a.id = t.album_id
-      GROUP BY a.id
-      HAVING total_tracks > 0 AND total_tracks = rated_tracks
-      ORDER BY a.downloaded_at DESC
-      LIMIT 10
-    `);
-
-    setLists({
-      recentAlbums: recent,
-      byDecade,
-      anniversaries,
-      forgotten,
-      topRated,
-      pending,
-      completed,
-    });
+      setStats(result);
+    } catch (error) {
+      console.error('Error cargando estadísticas:', error);
+    }
   };
 
-  const loadStats = async (db) => {
-    // Estadísticas generales
-    const generalStats = await db.getFirstAsync(`
-    SELECT 
-      (SELECT COUNT(*) FROM artists) as totalArtists,
-      (SELECT COUNT(*) FROM albums) as totalAlbums,
-      (SELECT COUNT(*) FROM tracks t
-       INNER JOIN albums a ON t.album_id = a.id) as totalTracks,
-      (SELECT COUNT(*) FROM tracks t
-       INNER JOIN albums a ON t.album_id = a.id
-       WHERE t.rating IS NOT NULL) as totalRatedTracks,
-      (SELECT AVG(t.rating) FROM tracks t
-       INNER JOIN albums a ON t.album_id = a.id
-       WHERE t.rating IS NOT NULL) as avgRating
-  `);
+  // Cargar todos los datos
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      
+      // Cargar en paralelo
+      await Promise.all([
+        loadRandomAlbum(),
+        loadLists(),
+        loadStats()
+      ]);
+    } catch (error) {
+      console.error('Error cargando datos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    // 🔴 NUEVA DISTRIBUCIÓN: Por álbumes (promedio del álbum) - SIN REDONDEO
-    const albumRatings = await db.getAllAsync(`
-    SELECT 
-      a.id,
-      a.title,
-      AVG(t.rating) as album_avg_rating
-    FROM albums a
-    INNER JOIN tracks t ON a.id = t.album_id
-    WHERE t.rating IS NOT NULL
-    GROUP BY a.id
-    HAVING album_avg_rating IS NOT NULL
-  `);
-
-    const distribution = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-    albumRatings.forEach(item => {
-      if (item.album_avg_rating) {
-        // Usar Math.floor para que 4.9 cuente como 4, no como 5
-        const ratingFloor = Math.floor(item.album_avg_rating);
-        if (ratingFloor >= 1 && ratingFloor <= 10) {
-          distribution[ratingFloor - 1] += 1;
-        }
-      }
-    });
-
-    // Tasa de completitud
-    const completionStats = await db.getFirstAsync(`
-    SELECT 
-      COUNT(*) as totalAlbums,
-      COUNT(CASE WHEN a.id IN (
-        SELECT album_id 
-        FROM tracks t
-        INNER JOIN albums a2 ON t.album_id = a2.id
-        GROUP BY album_id 
-        HAVING COUNT(*) = COUNT(CASE WHEN t.rating IS NOT NULL THEN 1 END)
-      ) THEN 1 END) as completedAlbums
-    FROM albums a
-  `);
-
-    const completionRate = completionStats?.totalAlbums > 0
-      ? Math.round((completionStats.completedAlbums / completionStats.totalAlbums) * 100)
-      : 0;
-
-    const ratedPercentage = generalStats?.totalTracks > 0
-      ? Math.round((generalStats.totalRatedTracks / generalStats.totalTracks) * 100)
-      : 0;
-
-    setStats({
-      totalArtists: generalStats?.totalArtists || 0,
-      totalAlbums: generalStats?.totalAlbums || 0,
-      totalTracks: generalStats?.totalTracks || 0,
-      totalRatedTracks: generalStats?.totalRatedTracks || 0,
-      avgRating: generalStats?.avgRating ? parseFloat(generalStats.avgRating).toFixed(1) : '0.0',
-      completionRate,
-      ratedPercentage,
-      ratingDistribution: distribution,
-    });
+  const handleRandomAlbumPress = async () => {
+    setRandomAlbumLoading(true);
+    await loadRandomAlbum();
+    setRandomAlbumLoading(false);
   };
 
   const renderAlbumCard = (album) => {
@@ -881,7 +799,7 @@ export default function ListsScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Espacio extra al final para evitar que el navigator tape el contenido */}
+        {/* Espacio extra al final */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
     );
@@ -889,7 +807,7 @@ export default function ListsScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor }]}>
+      <View style={[styles.container, { backgroundColor: '#000000' }]}>
         {/* Overlay muy sutil para dar profundidad */}
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.2)' }]} />
 
@@ -987,16 +905,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 16,
-    fontSize: 16,
-  },
   topGradient: {
     position: 'absolute',
     top: 0,
@@ -1061,7 +969,6 @@ const styles = StyleSheet.create({
   tabContent: {
     paddingBottom: 20,
   },
-  // Estilos para el widget de álbum aleatorio
   randomAlbumSection: {
     marginBottom: 30,
   },
@@ -1205,7 +1112,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
   },
-  // Estilos para el gráfico de barras
   chartContainer: {
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 12,
@@ -1301,15 +1207,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
   },
-  // Estilos para la pestaña de estadísticas
   statsTabContent: {
     paddingBottom: 100,
   },
   bottomSpacer: {
     height: 40,
   },
-
-  // 🔴 ESTILOS PARA SKELETONS
+  // Estilos para skeletons
   skeletonTab: {
     height: 44,
     backgroundColor: 'rgba(255,255,255,0.03)',
@@ -1403,10 +1307,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 4,
     marginBottom: 20,
-  },
-  skeletonBarColumn: {
-    alignItems: 'center',
-    flex: 1,
   },
   skeletonBar: {
     width: 20,
