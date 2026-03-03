@@ -1,0 +1,910 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Dimensions,
+  Image as RNImage,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import ImageColors from 'react-native-image-colors';
+import { getDB } from '../database/Index';
+import { useFocusEffect } from '@react-navigation/native'; 
+const { width, height } = Dimensions.get('window');
+import { tabBarStyle } from '../navigation/AppNavigator';
+
+// Colores para calificaciones
+const getRatingColor = (rating) => {
+  if (!rating) return '#9CA3AF';
+  const colors = [
+    '#fc3a3a', '#f56c45', '#ffa457', '#ffcb52', '#faed52',
+    '#e1ff47', '#b1fa6b', '#6ad46a', '#3ecf3e', '#28bf28',
+  ];
+  const index = Math.min(9, Math.max(0, Math.floor(rating) - 1));
+  return colors[index];
+};
+
+// 🔴 COMPONENTE SKELETON PARA HOME SCREEN
+const HomeSkeleton = () => {
+  return (
+    <View style={[styles.container, { backgroundColor: '#000000' }]}>
+      {/* Header skeleton */}
+      <View style={styles.header}>
+        <View style={styles.skeletonHeaderTitle} />
+        <View style={styles.skeletonStatsRow}>
+          <View style={styles.skeletonStatItem}>
+            <View style={styles.skeletonStatNumber} />
+            <View style={styles.skeletonStatLabel} />
+          </View>
+          <View style={styles.skeletonStatDivider} />
+          <View style={styles.skeletonStatItem}>
+            <View style={styles.skeletonStatNumber} />
+            <View style={styles.skeletonStatLabel} />
+          </View>
+          <View style={styles.skeletonStatDivider} />
+          <View style={styles.skeletonStatItem}>
+            <View style={styles.skeletonStatNumber} />
+            <View style={styles.skeletonStatLabel} />
+          </View>
+        </View>
+      </View>
+
+      {/* Featured album skeleton */}
+      <View style={styles.featuredSection}>
+        <View style={styles.skeletonSectionHeader}>
+          <View style={styles.skeletonSectionIcon} />
+          <View style={styles.skeletonSectionTitle} />
+        </View>
+        <View style={styles.skeletonFeaturedCard} />
+      </View>
+
+      {/* Mosaic skeleton */}
+      <View style={styles.mosaicSection}>
+        <View style={styles.skeletonSectionHeader}>
+          <View style={styles.skeletonSectionIcon} />
+          <View style={styles.skeletonSectionTitle} />
+          <View style={styles.skeletonSectionCount} />
+        </View>
+        <View style={styles.mosaicContainer}>
+          {[1, 2, 3, 4, 5].map((row) => (
+            <View key={row} style={styles.mosaicRow}>
+              <View style={styles.skeletonMosaicItem} />
+              <View style={styles.skeletonMosaicItem} />
+              <View style={styles.skeletonMosaicItem} />
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+};
+
+export default function HomeScreen({ navigation }) {
+  const [loading, setLoading] = useState(true);
+  const [mosaicAlbums, setMosaicAlbums] = useState([]);
+  const [featuredAlbum, setFeaturedAlbum] = useState(null);
+  const [backgroundColor, setBackgroundColor] = useState('#000000');
+  const [albumRating, setAlbumRating] = useState(0);
+  const [totalStats, setTotalStats] = useState({
+    total: 0,
+    listened: 0,
+    listening: 0,
+    to_listen: 0,
+    favorites: 0
+  });
+
+  const mountedRef = useRef(true);
+  const isLoadingRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('📱 HomeScreen enfocada - recargando datos...');
+      loadData();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      navigation.getParent()?.setOptions({
+        tabBarStyle: tabBarStyle
+      });
+    }, [navigation])
+  );
+
+  const getAlbumColor = async (album) => {
+    if (!album?.cover) return '#000000';
+
+    try {
+      const colors = await ImageColors.getColors(album.cover, {
+        fallback: '#000000',
+        cache: true,
+        key: album.id?.toString() || 'default',
+      });
+
+      switch (colors.platform) {
+        case 'android':
+          return colors.dominant || colors.vibrant || '#000000';
+        case 'ios':
+          return colors.background || colors.primary || '#000000';
+        default:
+          return '#000000';
+      }
+    } catch (error) {
+      console.error('Error extrayendo color:', error);
+      return '#000000';
+    }
+  };
+
+  const calculateAlbumRating = async (albumId) => {
+    try {
+      const db = await getDB();
+      const result = await db.getFirstAsync(
+        'SELECT AVG(rating) as avg_rating FROM tracks WHERE album_id = ? AND rating IS NOT NULL',
+        [albumId]
+      );
+      return result?.avg_rating || 0;
+    } catch (error) {
+      console.error('Error calculando rating:', error);
+      return 0;
+    }
+  };
+
+  const loadData = async () => {
+    if (isLoadingRef.current || !mountedRef.current) return;
+
+    isLoadingRef.current = true;
+    setLoading(true);
+
+    try {
+      const db = await getDB();
+
+      // Cargar estadísticas generales
+      const stats = await db.getFirstAsync(`
+        SELECT 
+          COUNT(*) as total,
+          SUM(CASE WHEN state = 'listened' THEN 1 ELSE 0 END) as listened,
+          SUM(CASE WHEN state = 'listening' THEN 1 ELSE 0 END) as listening,
+          SUM(CASE WHEN state = 'to_listen' THEN 1 ELSE 0 END) as to_listen,
+          SUM(is_favorite) as favorites
+        FROM albums
+      `);
+
+      setTotalStats({
+        total: stats?.total || 0,
+        listened: stats?.listened || 0,
+        listening: stats?.listening || 0,
+        to_listen: stats?.to_listen || 0,
+        favorites: stats?.favorites || 0
+      });
+
+      // Cargar álbum destacado (aleatorio entre todos los álbumes)
+      const featured = await db.getFirstAsync(`
+        SELECT a.*, ar.name as artist_name
+        FROM albums a
+        LEFT JOIN artists ar ON a.artist_id = ar.id
+        WHERE a.cover IS NOT NULL
+        ORDER BY RANDOM()
+        LIMIT 1
+      `);
+
+      if (featured && mountedRef.current) {
+        setFeaturedAlbum(featured);
+
+        // El fondo se toma del álbum destacado
+        const color = await getAlbumColor(featured);
+        setBackgroundColor(color);
+
+        // Calcular rating promedio del álbum destacado
+        const rating = await calculateAlbumRating(featured.id);
+        setAlbumRating(rating);
+      }
+
+      // Cargar álbumes para el mosaico (15 álbumes aleatorios con portada)
+      const albums = await db.getAllAsync(`
+        SELECT a.*, ar.name as artist_name
+        FROM albums a
+        LEFT JOIN artists ar ON a.artist_id = ar.id
+        WHERE a.cover IS NOT NULL 
+          AND a.state IN ('to_listen', 'listening')
+        ORDER BY RANDOM()
+        LIMIT 15
+      `);
+
+      if (mountedRef.current) {
+        setMosaicAlbums(albums);
+      }
+
+    } catch (error) {
+      console.error('Error cargando datos:', error);
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+      }
+      isLoadingRef.current = false;
+    }
+  };
+
+  // Renderizar mosaico
+  const renderMosaic = () => {
+    if (mosaicAlbums.length === 0) return null;
+
+    const rows = [];
+    for (let i = 0; i < mosaicAlbums.length; i += 3) {
+      const rowAlbums = mosaicAlbums.slice(i, i + 3);
+      rows.push(
+        <View key={i} style={styles.mosaicRow}>
+          {rowAlbums.map((album) => (
+            <TouchableOpacity
+              key={album.id}
+              style={styles.mosaicItem}
+              onPress={() => navigation.navigate('Album', {
+                album: {
+                  id: album.deezer_id,
+                  title: album.title,
+                  cover: album.cover
+                },
+                artistName: album.artist_name,
+                artistId: album.artist_id,
+                refresh: true
+              })}
+              activeOpacity={0.9}
+            >
+              <Image
+                source={{ uri: album.cover }}
+                style={styles.mosaicImage}
+                contentFit="cover"
+                transition={300}
+              />
+
+              <View style={[
+                styles.stateBadge,
+                { backgroundColor: album.state === 'listening' ? '#60A5FA' : '#FBBF24' }
+              ]}>
+                <Ionicons
+                  name={album.state === 'listening' ? 'headset' : 'time'}
+                  size={12}
+                  color="white"
+                />
+              </View>
+
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.8)']}
+                style={styles.mosaicGradient}
+              />
+              <View style={styles.mosaicOverlay}>
+                <Text style={styles.mosaicTitle} numberOfLines={1}>
+                  {album.title}
+                </Text>
+                <Text style={styles.mosaicArtist} numberOfLines={1}>
+                  {album.artist_name}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+          {rowAlbums.length < 3 && (
+            <View style={[styles.mosaicItem, styles.mosaicPlaceholder]} />
+          )}
+        </View>
+      );
+    }
+    return rows;
+  };
+
+  // Si está cargando, mostrar skeleton
+  if (loading) {
+    return <HomeSkeleton />;
+  }
+
+  const ratingColor = getRatingColor(albumRating);
+
+  return (
+    <View style={styles.container}>
+      {/* Fondo con blur del color del álbum destacado */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor }]} />
+
+      {/* Overlay muy sutil para dar profundidad */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.2)' }]} />
+
+      {/* Gradiente superior */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.3)', 'transparent']}
+        style={styles.topGradient}
+        pointerEvents="none"
+      />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Header con estadísticas minimalistas */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Mi Colección</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{totalStats.total}</Text>
+              <Text style={styles.statLabel}>total</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{totalStats.listened}</Text>
+              <Text style={styles.statLabel}>escuchados</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{totalStats.favorites}</Text>
+              <Text style={styles.statLabel}>favoritos</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Álbum destacado - ahora con aspectRatio 1:1 (cuadrado) */}
+        {featuredAlbum && (
+          <View style={styles.featuredSection}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="star" size={18} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.sectionTitle}>Álbum destacado</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.featuredCard}
+              onPress={() => navigation.navigate('Album', {
+                album: {
+                  id: featuredAlbum.deezer_id,
+                  title: featuredAlbum.title,
+                  cover: featuredAlbum.cover
+                },
+                artistName: featuredAlbum.artist_name,
+                artistId: featuredAlbum.artist_id,
+                refresh: true
+              })}
+              activeOpacity={0.9}
+            >
+              <Image
+                source={{ uri: featuredAlbum.cover }}
+                style={styles.featuredImage}
+                contentFit="cover"
+              />
+
+              {/* Gradiente para legibilidad */}
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
+                style={styles.featuredGradient}
+                locations={[0.3, 0.7, 1]}
+              />
+
+              <View style={styles.featuredOverlay}>
+                <View style={styles.featuredHeader}>
+                  <View style={styles.featuredTitleContainer}>
+                    <Text style={styles.featuredTitle} numberOfLines={2}>
+                      {featuredAlbum.title}
+                    </Text>
+                    <Text style={styles.featuredArtist}>
+                      {featuredAlbum.artist_name}
+                    </Text>
+                  </View>
+
+                  {albumRating > 0 && (
+                    <View style={[styles.featuredRating, { backgroundColor: ratingColor + '20' }]}>
+                      <Text style={[styles.featuredRatingText, { color: ratingColor }]}>
+                        {albumRating === 10 ? '10' : albumRating.toFixed(1)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {featuredAlbum.user_description ? (
+                  <View style={styles.featuredComment}>
+                    <Ionicons name="chatbubble-outline" size={14} color="rgba(255,255,255,0.6)" />
+                    <Text style={styles.featuredCommentText} numberOfLines={2}>
+                      {featuredAlbum.user_description}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.featuredBadgeRow}>
+                    <View style={[styles.featuredBadge, { backgroundColor: featuredAlbum.state === 'listened' ? '#4ADE80' : featuredAlbum.state === 'listening' ? '#60A5FA' : '#FBBF24' }]}>
+                      <Ionicons
+                        name={featuredAlbum.state === 'listened' ? 'checkmark' : featuredAlbum.state === 'listening' ? 'headset' : 'time'}
+                        size={12}
+                        color="white"
+                      />
+                      <Text style={styles.featuredBadgeText}>
+                        {featuredAlbum.state === 'listened' ? 'Escuchado' : featuredAlbum.state === 'listening' ? 'Escuchando' : 'Por escuchar'}
+                      </Text>
+                    </View>
+
+                    {featuredAlbum.is_favorite === 1 && (
+                      <View style={[styles.featuredBadge, { backgroundColor: 'rgba(255,215,0,0.2)' }]}>
+                        <Ionicons name="star" size={12} color="#FFD700" />
+                        <Text style={[styles.featuredBadgeText, { color: '#FFD700' }]}>Favorito</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <View style={styles.featuredFooter}>
+                  <View style={styles.featuredMeta}>
+                    <Ionicons name="musical-notes" size={12} color="rgba(255,255,255,0.5)" />
+                    <Text style={styles.featuredMetaText}>
+                      {featuredAlbum.total_tracks || 0} canciones
+                    </Text>
+                  </View>
+                  {featuredAlbum.release_date && (
+                    <>
+                      <Text style={styles.featuredMetaDot}>•</Text>
+                      <View style={styles.featuredMeta}>
+                        <Ionicons name="calendar" size={12} color="rgba(255,255,255,0.5)" />
+                        <Text style={styles.featuredMetaText}>
+                          {new Date(featuredAlbum.release_date).getFullYear()}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Mosaico - solo álbumes pendientes */}
+        {mosaicAlbums.length > 0 ? (
+          <View style={styles.mosaicSection}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="grid" size={18} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.sectionTitle}>Por escuchar</Text>
+              <Text style={styles.sectionCount}>{mosaicAlbums.length}</Text>
+            </View>
+            <View style={styles.mosaicContainer}>
+              {renderMosaic()}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIcon}>
+              <Ionicons name="checkmark-done" size={48} color="#666" />
+            </View>
+            <Text style={styles.emptyTitle}>¡Todo escuchado!</Text>
+            <Text style={styles.emptySubtitle}>
+              No tienes álbumes pendientes
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '300',
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    zIndex: 10,
+    pointerEvents: 'none',
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 32,
+    fontWeight: '300',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statNumber: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  statLabel: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: '400',
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginHorizontal: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '400',
+    marginLeft: 8,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  sectionCount: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: '300',
+  },
+
+  // Estilos del álbum destacado - ahora con aspectRatio 1:1
+  featuredSection: {
+    marginBottom: 30,
+    paddingHorizontal: 20,
+  },
+  featuredCard: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  featuredImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  featuredGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+  },
+  featuredOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+  },
+  featuredHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  featuredTitleContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  featuredTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    marginBottom: 4,
+  },
+  featuredArtist: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  featuredRating: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  featuredRatingText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  featuredComment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  featuredCommentText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    marginLeft: 6,
+    flex: 1,
+    fontStyle: 'italic',
+  },
+  featuredBadgeRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  featuredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  featuredBadgeText: {
+    color: 'white',
+    fontSize: 11,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  featuredFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featuredMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featuredMetaText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  featuredMetaDot: {
+    color: 'rgba(255,255,255,0.3)',
+    marginHorizontal: 8,
+    fontSize: 12,
+  },
+
+  // Estilos del mosaico
+  mosaicSection: {
+    marginBottom: 20,
+  },
+  mosaicContainer: {
+    paddingHorizontal: 16,
+  },
+  mosaicRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  mosaicItem: {
+    width: (width - 48) / 3,
+    aspectRatio: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  mosaicImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  stateBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  mosaicGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '70%',
+  },
+  mosaicOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 12,
+  },
+  mosaicTitle: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  mosaicArtist: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 11,
+    marginTop: 2,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  mosaicPlaceholder: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+
+  // Estilos para vacío
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 32,
+  },
+  emptyIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  emptyTitle: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 18,
+    fontWeight: '400',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+
+  // 🔴 ESTILOS PARA SKELETONS
+  skeletonHeaderTitle: {
+    width: 150,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  skeletonStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  skeletonStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  skeletonStatNumber: {
+    width: 40,
+    height: 24,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  skeletonStatLabel: {
+    width: 50,
+    height: 14,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 4,
+  },
+  skeletonStatDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginHorizontal: 8,
+  },
+  skeletonSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  skeletonSectionIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginRight: 8,
+  },
+  skeletonSectionTitle: {
+    width: 120,
+    height: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 4,
+  },
+  skeletonSectionCount: {
+    width: 30,
+    height: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  skeletonFeaturedCard: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    marginHorizontal: 20,
+  },
+  skeletonMosaicItem: {
+    width: (width - 48) / 3,
+    aspectRatio: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+});
