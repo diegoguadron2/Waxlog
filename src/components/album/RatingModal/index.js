@@ -11,29 +11,122 @@ import {
     Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    withSequence,
+    interpolate,
+    runOnJS,
+    Easing
+} from 'react-native-reanimated';
 import BlurView from '../../shared/BlurView';
 import { getRatingColor, getDecimalColor } from '../../shared/RatingBadge';
 
 const { width, height } = Dimensions.get('window');
 
-/**
- * Componente RatingModal
- * Modal para calificar una canción
- * 
- * @param {Object} props
- * @param {boolean} props.visible - Visibilidad del modal
- * @param {Function} props.onClose - Función para cerrar el modal
- * @param {Function} props.onSave - Función para guardar la calificación
- * @param {number} props.currentRating - Calificación actual
- * @param {string} props.trackTitle - Título de la canción
- */
+// Componente de botón animado para números
+const AnimatedNumberButton = ({ number, selected, onPress, color }) => {
+    const scale = useSharedValue(1);
+    const opacity = useSharedValue(1);
+
+    const handlePress = () => {
+        // Animación de "pop"
+        scale.value = withSequence(
+            withSpring(1.2, { damping: 8, stiffness: 150 }),
+            withSpring(1, { damping: 8, stiffness: 150 })
+        );
+        
+        // Pequeño fade para feedback visual
+        opacity.value = withSequence(
+            withTiming(0.7, { duration: 50 }),
+            withTiming(1, { duration: 100 })
+        );
+
+        // Llamar a la función original
+        onPress();
+    };
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+        opacity: opacity.value,
+    }));
+
+    return (
+        <Animated.View style={animatedStyle}>
+            <TouchableOpacity
+                onPress={handlePress}
+                style={[
+                    styles.ratingNumberButton,
+                    { backgroundColor: color + '20' },
+                    selected && {
+                        backgroundColor: color,
+                        borderColor: 'white',
+                        borderWidth: 2
+                    }
+                ]}
+            >
+                <Text style={[
+                    styles.ratingNumberText,
+                    { color: color },
+                    selected && styles.ratingNumberTextSelected
+                ]}>
+                    {number}
+                </Text>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+};
+
+// Componente de texto animado para el preview
+const AnimatedPreview = ({ value, color }) => {
+    const scale = useSharedValue(1);
+
+    useEffect(() => {
+        // Animar cuando cambia el valor
+        scale.value = withSequence(
+            withSpring(1.2, { damping: 10 }),
+            withSpring(1, { damping: 10 })
+        );
+    }, [value]);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+
+    return (
+        <Animated.View style={animatedStyle}>
+            <Text style={[styles.previewValue, { color }]}>
+                {value}
+            </Text>
+        </Animated.View>
+    );
+};
+
+// Componente principal
 const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) => {
     const [selectedRating, setSelectedRating] = useState(5);
     const [decimal, setDecimal] = useState('0');
     const [comment, setComment] = useState('');
 
+    // Animaciones del modal - ULTRA RÁPIDAS
+    const modalScale = useSharedValue(0);
+    const modalOpacity = useSharedValue(0);
+
     useEffect(() => {
         if (visible) {
+            // Entrada instantánea - 50ms es casi imperceptible
+            modalScale.value = withTiming(1, {
+                duration: 50, // 50 milisegundos
+                easing: Easing.linear
+            });
+            modalOpacity.value = withTiming(1, {
+                duration: 50,
+                easing: Easing.linear
+            });
+
+            // Configurar valores iniciales
             if (currentRating) {
                 setSelectedRating(Math.floor(currentRating));
                 setDecimal(Math.round((currentRating - Math.floor(currentRating)) * 10).toString());
@@ -42,6 +135,14 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
                 setDecimal('0');
             }
             setComment('');
+        } else {
+            // Salida aún más rápida
+            modalScale.value = withTiming(0, { 
+                duration: 30 // 30ms - desaparece al instante
+            });
+            modalOpacity.value = withTiming(0, { 
+                duration: 30 
+            });
         }
     }, [visible, currentRating]);
 
@@ -49,16 +150,27 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
     const ratingColor = getDecimalColor(finalRating);
 
     const handleSave = () => {
+        // Guardar inmediatamente, sin animación extra
         onSave(finalRating, comment);
         onClose();
     };
 
+    const modalAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: modalScale.value }],
+        opacity: modalOpacity.value,
+    }));
+
+    const containerAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: modalOpacity.value,
+    }));
+
     return (
-        <Modal visible={visible} transparent animationType="fade">
-            <BlurView intensity={30} style={styles.modalContainer}>
+        <Modal visible={visible} transparent animationType="none">
+            <Animated.View style={[styles.modalContainer, containerAnimatedStyle]}>
+                <BlurView intensity={30} style={StyleSheet.absoluteFillObject} />
                 <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} />
 
-                <View style={styles.modalContent}>
+                <Animated.View style={[styles.modalContent, modalAnimatedStyle]}>
                     <ScrollView
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.modalScrollContent}
@@ -85,27 +197,13 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
                             contentContainerStyle={styles.ratingContentContainer}
                         >
                             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                                <TouchableOpacity
+                                <AnimatedNumberButton
                                     key={num}
+                                    number={num}
+                                    selected={selectedRating === num}
                                     onPress={() => setSelectedRating(num)}
-                                    style={[
-                                        styles.ratingNumberButton,
-                                        { backgroundColor: getRatingColor(num) + '20' },
-                                        selectedRating === num && {
-                                            backgroundColor: getRatingColor(num),
-                                            borderColor: 'white',
-                                            borderWidth: 2
-                                        }
-                                    ]}
-                                >
-                                    <Text style={[
-                                        styles.ratingNumberText,
-                                        { color: getRatingColor(num) },
-                                        selectedRating === num && styles.ratingNumberTextSelected
-                                    ]}>
-                                        {num}
-                                    </Text>
-                                </TouchableOpacity>
+                                    color={getRatingColor(num)}
+                                />
                             ))}
                         </ScrollView>
 
@@ -117,49 +215,21 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
                             contentContainerStyle={styles.ratingContentContainer}
                         >
                             {selectedRating === 10 ? (
-                                <TouchableOpacity
+                                <AnimatedNumberButton
+                                    number=".0"
+                                    selected={decimal === '0'}
                                     onPress={() => setDecimal('0')}
-                                    style={[
-                                        styles.ratingNumberButton,
-                                        { backgroundColor: ratingColor + '20' },
-                                        decimal === '0' && {
-                                            backgroundColor: ratingColor,
-                                            borderColor: 'white',
-                                            borderWidth: 2
-                                        }
-                                    ]}
-                                >
-                                    <Text style={[
-                                        styles.ratingNumberText,
-                                        { color: ratingColor },
-                                        decimal === '0' && styles.ratingNumberTextSelected
-                                    ]}>
-                                        .0
-                                    </Text>
-                                </TouchableOpacity>
+                                    color={ratingColor}
+                                />
                             ) : (
                                 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                                    <TouchableOpacity
+                                    <AnimatedNumberButton
                                         key={num}
+                                        number={`.${num}`}
+                                        selected={decimal === num.toString()}
                                         onPress={() => setDecimal(num.toString())}
-                                        style={[
-                                            styles.ratingNumberButton,
-                                            { backgroundColor: ratingColor + '20' },
-                                            decimal === num.toString() && {
-                                                backgroundColor: ratingColor,
-                                                borderColor: 'white',
-                                                borderWidth: 2
-                                            }
-                                        ]}
-                                    >
-                                        <Text style={[
-                                            styles.ratingNumberText,
-                                            { color: ratingColor },
-                                            decimal === num.toString() && styles.ratingNumberTextSelected
-                                        ]}>
-                                            .{num}
-                                        </Text>
-                                    </TouchableOpacity>
+                                        color={ratingColor}
+                                    />
                                 ))
                             )}
                         </ScrollView>
@@ -178,9 +248,10 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
 
                         <View style={[styles.previewContainer, { borderColor: ratingColor + '40' }]}>
                             <Text style={styles.previewLabel}>Nota final</Text>
-                            <Text style={[styles.previewValue, { color: ratingColor }]}>
-                                {finalRating.toFixed(1)}
-                            </Text>
+                            <AnimatedPreview
+                                value={finalRating.toFixed(1)}
+                                color={ratingColor}
+                            />
                         </View>
 
                         <View style={styles.modalButtons}>
@@ -192,8 +263,8 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
                             </TouchableOpacity>
                         </View>
                     </ScrollView>
-                </View>
-            </BlurView>
+                </Animated.View>
+            </Animated.View>
         </Modal>
     );
 };

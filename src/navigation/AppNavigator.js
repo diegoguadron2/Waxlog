@@ -16,9 +16,38 @@ import ArtistsAlbumsScreen from '../screens/ArtistsAlbumsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import SaveAlbumScreen from '../screens/SaveAlbumScreen';
 import GenreScreen from '../screens/GenreScreen';
-
+import { CardStyleInterpolators } from '@react-navigation/stack';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+// Para transiciones suaves entre pantallas
+const screenOptions = {
+  cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+  transitionSpec: {
+    open: {
+      animation: 'spring',
+      config: {
+        stiffness: 1000,
+        damping: 50,
+        mass: 3,
+        overshootClamping: true,
+        restDisplacementThreshold: 0.01,
+        restSpeedThreshold: 0.01,
+      },
+    },
+    close: {
+      animation: 'spring',
+      config: {
+        stiffness: 1000,
+        damping: 50,
+        mass: 3,
+        overshootClamping: true,
+        restDisplacementThreshold: 0.01,
+        restSpeedThreshold: 0.01,
+      },
+    },
+  },
+};
 
 // Configuración de animación suave para todos los stacks
 const stackAnimationOptions = {
@@ -45,9 +74,29 @@ const SearchStack = () => (
 
 // Stack para la sección de Biblioteca (CON SAVEALBUM)
 const LibraryStack = () => (
-  <Stack.Navigator screenOptions={stackAnimationOptions}>
+  <Stack.Navigator
+    screenOptions={{
+      headerShown: false,
+      gestureEnabled: true,
+      gestureDirection: 'horizontal',
+      contentStyle: {
+        backgroundColor: 'transparent',
+      },
+    }}
+  >
     <Stack.Screen name="LibraryMain" component={LibraryScreen} />
-    <Stack.Screen name="Album" component={AlbumScreen} />
+
+    {/* Configuración de fade para AlbumScreen */}
+    <Stack.Screen
+      name="Album"
+      component={AlbumScreen}
+      options={{
+        // Animación de fade simple
+        animation: 'fade', // 👈 Cambiar de 'none' a 'fade'
+        animationDuration: 300, // Duración en ms
+      }}
+    />
+
     <Stack.Screen name="Artist" component={ArtistScreen} />
     <Stack.Screen name="Track" component={TrackScreen} />
     <Stack.Screen name="SaveAlbum" component={SaveAlbumScreen} />
@@ -128,12 +177,12 @@ export default function AppNavigator() {
             else if (route.name === 'Listas') iconName = 'list';
             else if (route.name === 'Colección') iconName = 'albums';
             else if (route.name === 'Ajustes') iconName = 'settings';
-            
+
             // Versión outline cuando no está enfocado
             if (!focused) {
               iconName = iconName + '-outline';
             }
-            
+
             return <Ionicons name={iconName} size={26} color={color} />;
           },
           tabBarActiveTintColor: '#ffffff',

@@ -3,10 +3,18 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import AppNavigator from "./src/navigation/AppNavigator";
 import { initDatabase } from './src/database/Index';
+import { SharedElementProvider, } from './src/context/SharedElementContext'; 
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from 'react-native-reanimated';
 
 export default function App() {
   const [isDBReady, setIsDBReady] = useState(false);
-
+  configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: true, // Reanimated runs in strict mode by default
+});
   useEffect(() => {
     const setupDatabase = async () => {
       try {
@@ -32,5 +40,10 @@ export default function App() {
     );
   }
 
-  return <AppNavigator />;
+
+  return (
+    <SharedElementProvider> {/* 👈 ENVOLVER AQUÍ */}
+      <AppNavigator />
+    </SharedElementProvider>
+  );
 }

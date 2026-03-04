@@ -1,16 +1,17 @@
 // screens/AlbumScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
   Dimensions,
   StyleSheet,
   TouchableOpacity,
-  Text,
+  Text, Animated,
 } from 'react-native';
 import ImageColors from 'react-native-image-colors';
+import { Image } from 'expo-image'; //  IMPORTANTE: Importar Image de expo-image
 import { useAlbumData } from '../hooks/useAlbumData';
-import { Ionicons } from '@expo/vector-icons';  // 👈 Faltaba esta importación
+import { Ionicons } from '@expo/vector-icons';
 // Componentes de album
 import AlbumHeader from '../components/album/AlbumHeader';
 import AlbumComment from '../components/album/AlbumComment';
@@ -82,7 +83,10 @@ export default function AlbumScreen({ route, navigation }) {
   const [imageUrl, setImageUrl] = useState('');
   const [expandedComments, setExpandedComments] = useState({});
   const [activeInfoTab, setActiveInfoTab] = useState('tracks');
-
+  const [imageLoading, setImageLoading] = useState(true); // Estado para imagen
+  const [contentReady, setContentReady] = useState(false); //  NUEVO
+  const contentOpacity = useRef(new Animated.Value(0)).current; //  NUEVO
+  const contentTranslateY = useRef(new Animated.Value(20)).current; //  NUEVO
   useEffect(() => {
     console.log('AlbumScreen montado con params:', { initialAlbum, artistName, artistId });
     updateAlbum(initialAlbum || {});
@@ -96,28 +100,100 @@ export default function AlbumScreen({ route, navigation }) {
     }
   }, [refresh]);
 
+  // useEffect separado para manejar la imagen cuando album esté disponible
   useEffect(() => {
-    if (album?.cover) {
-      const largeUrl = album.cover.includes('/250x250-')
-        ? album.cover.replace('/250x250-', '/1000x1000-')
-        : album.cover;
-      setImageUrl(largeUrl);
-      getImageColors(largeUrl);
+    const loadImage = async () => {
+      if (album?.cover) {
+        const largeUrl = album.cover.includes('/250x250-')
+          ? album.cover.replace('/250x250-', '/1000x1000-')
+          : album.cover;
+        setImageUrl(largeUrl);
+
+        // Precargar y obtener colores
+        await prefetchAndLoadImage(largeUrl);
+      }
+    };
+
+    if (album) {
+      loadImage();
     }
-  }, [album]);
+  }, [album]); // Dependencia en album, no en album?.cover
 
   useEffect(() => {
     navigation.getParent()?.setOptions({
       tabBarStyle: { display: 'none' }
     });
+
+    return () => {
+      navigation.getParent()?.setOptions({
+        tabBarStyle: {
+          position: 'absolute',
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          borderTopWidth: 0,
+          elevation: 0,
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
+        }
+      });
+    };
   }, [navigation]);
+
+
+  // Efecto para animar el contenido cuando la imagen esté lista
+  useEffect(() => {
+    if (!imageLoading) {
+      // Pequeño retraso para que primero se muestre la imagen
+      setTimeout(() => {
+        setContentReady(true);
+
+        // Animar la entrada del contenido
+        Animated.parallel([
+          Animated.timing(contentOpacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true, // Importante para rendimiento
+          }),
+          Animated.spring(contentTranslateY, {
+            toValue: 0,
+            friction: 8,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 50);
+    }
+  }, [imageLoading]); // Depende de imageLoading
+
+  const prefetchAndLoadImage = async (url) => {
+    try {
+      setImageLoading(true);
+
+      // Precargar la imagen
+      await Image.prefetch(url);
+
+      // Pequeña pausa para asegurar que el caché esté listo
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Obtener colores AHORA que la imagen está en caché y album existe
+      if (album) {
+        await getImageColors(url);
+      }
+
+      // Indicar que la imagen está lista
+      setImageLoading(false);
+    } catch (error) {
+      console.error('Error con imagen:', error);
+      setImageLoading(false);
+    }
+  };
 
   const getImageColors = async (imageUrl) => {
     try {
       const colors = await ImageColors.getColors(imageUrl, {
         fallback: '#000000',
         cache: true,
-        key: album.id?.toString() || 'default',
+        key: album?.id?.toString() || 'default',
       });
 
       switch (colors.platform) {
@@ -157,7 +233,8 @@ export default function AlbumScreen({ route, navigation }) {
     }));
   };
 
-  if (loading) {
+  // Mostrar skeleton si loading (datos) O imageLoading (imagen no lista)
+  if (loading || imageLoading) {
     return <AlbumSkeleton />;
   }
 
@@ -199,7 +276,13 @@ export default function AlbumScreen({ route, navigation }) {
           onGoBack={() => navigation.goBack()}
         />
 
-        <View style={styles.content}>
+        <Animated.View w style={[  //  Cambiado de View a Animated.View
+          styles.content,
+          {
+            opacity: contentOpacity,          // Animación de fade
+            transform: [{ translateY: contentTranslateY }] // Animación de desplazamiento
+          }
+        ]}>
           <AlbumComment
             comment={albumComment}
             isSaved={isSaved}
@@ -257,7 +340,7 @@ export default function AlbumScreen({ route, navigation }) {
               dominantColor={dominantColor}
             />
           )}
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );

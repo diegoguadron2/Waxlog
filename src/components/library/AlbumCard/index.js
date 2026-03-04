@@ -9,12 +9,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
   withSpring,
   withTiming,
-  interpolate,
   runOnJS
 } from 'react-native-reanimated';
 
@@ -29,7 +28,7 @@ const getRatingColor = (rating) => {
   return colors[Math.min(9, Math.max(0, roundedRating - 1))];
 };
 
-// Componente de animación al presionar integrado
+// Componente de animación al presionar - AHORA RECIBE onPress DIRECTAMENTE
 const PressAnimation = ({ children, onPress }) => {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
@@ -44,17 +43,11 @@ const PressAnimation = ({ children, onPress }) => {
     opacity.value = withTiming(1, { duration: 100 });
   };
 
-  const handlePress = () => {
-    if (onPress) {
-      runOnJS(onPress)();
-    }
-  };
-
   return (
     <TouchableOpacity
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      onPress={handlePress}
+      onPress={onPress} // 👈 Simplemente ejecuta la función que recibe
       activeOpacity={1}
     >
       <Animated.View
@@ -70,10 +63,10 @@ const PressAnimation = ({ children, onPress }) => {
 };
 
 // Componente principal AlbumCard
-const AlbumCard = ({ 
-  album, 
-  viewMode, 
-  activeTab, 
+const AlbumCard = ({
+  album,
+  viewMode,
+  activeTab,
   onPress,
   cardWidth,
 }) => {
@@ -95,11 +88,34 @@ const AlbumCard = ({
     transform: [{ translateY: translateY.value }],
   }));
 
+  // 👇 NUEVA FUNCIÓN: Maneja la precarga y luego llama a onPress
+  const handlePressWithPreload = async () => {
+    try {
+      // 1. Precargar la imagen de alta resolución
+      const largeImageUrl = album.cover?.includes('/250x250-')
+        ? album.cover.replace('/250x250-', '/1000x1000-')
+        : album.cover;
+
+      if (largeImageUrl) {
+        await Image.prefetch(largeImageUrl);
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      // 2. Una vez precargada, navegar
+      onPress(album);
+    } catch (error) {
+      console.log('Error precargando imagen:', error);
+      // Si falla la precarga, navegar de todas formas
+      onPress(album);
+    }
+  };
+
   // Renderizado para vista grid
   if (viewMode === 'grid') {
     return (
       <Animated.View style={[animatedStyle, { width: cardWidth }]}>
-        <PressAnimation onPress={() => onPress(album)}>
+        {/* 👈 Pasamos handlePressWithPreload en lugar de una función anónima */}
+        <PressAnimation onPress={handlePressWithPreload}>
           <View style={[styles.gridCard, showRating && { borderColor: ratingColor, borderWidth: 2 }]}>
             <View style={styles.gridImageContainer}>
               <Image
@@ -147,7 +163,8 @@ const AlbumCard = ({
   // Renderizado para vista lista
   return (
     <Animated.View style={animatedStyle}>
-      <PressAnimation onPress={() => onPress(album)}>
+      {/* 👈 También aquí pasamos handlePressWithPreload */}
+      <PressAnimation onPress={handlePressWithPreload}>
         <View style={[
           styles.listCard,
           showRating && { borderColor: ratingColor, borderWidth: 2 }
@@ -209,6 +226,7 @@ const AlbumCard = ({
 
 // Los estilos se mantienen igual
 const styles = StyleSheet.create({
+  // ... (todos tus estilos existentes, sin cambios)
   gridCard: {
     borderRadius: 12,
     overflow: 'hidden',

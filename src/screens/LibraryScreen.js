@@ -18,7 +18,7 @@ import LibraryHeader from '../components/library/LibraryHeader';
 import ControlsBar from '../components/library/ControlsBar';
 import SortMenu from '../components/library/SortMenu';
 import EmptyLibraryState from '../components/library/EmptyLibraryState';
-
+import SharedElement from '../components/shared/SharedElement';
 // Hooks
 import { useLibraryData } from '../hooks/useLibraryData';
 
@@ -100,12 +100,12 @@ export default function LibraryScreen({ navigation }) {
   ), [activeTab, handleAlbumPress]);
 
   const renderListItem = useCallback(({ item }) => (
-    <AlbumCard
-      album={item}
-      viewMode="list"
-      activeTab={activeTab}
-      onPress={handleAlbumPress}
-    />
+      <AlbumCard
+        album={item}
+        viewMode="list"
+        activeTab={activeTab}
+        onPress={handleAlbumPress}
+      />
   ), [activeTab, handleAlbumPress]);
 
   const renderHeader = useCallback(() => (

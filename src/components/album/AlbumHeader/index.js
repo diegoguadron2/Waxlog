@@ -16,10 +16,25 @@ import PressAnimation from '../../shared/PressAnimation';
 import RatingBadge, { getRatingColor, formatRating } from '../../shared/RatingBadge';
 import FavoriteStar from '../../shared/FavoriteStar';
 import ImageWithFallback from '../../shared/ImageWithFallback';
+import SharedElement from '../../shared/SharedElement';
 
 const { width, height } = Dimensions.get('window');
 
-// ... (resto de las funciones auxiliares)
+// Función auxiliar para formatear tipo de álbum
+const formatAlbumType = (type) => {
+    if (!type) return 'Álbum';
+    const types = {
+        'ep': 'EP',
+        'single': 'Single',
+        'album': 'Álbum',
+        'live': 'En Vivo',
+        'compilation': 'Compilación',
+        'remix': 'Remix',
+        'soundtrack': 'Banda Sonora',
+        'audiobook': 'Audiolibro'
+    };
+    return types[type.toLowerCase()] || type;
+};
 
 const AlbumHeader = ({
     album,
@@ -75,12 +90,15 @@ const AlbumHeader = ({
 
             {/* Imagen de portada */}
             <View style={styles.imageContainer}>
-                <ImageWithFallback
-                    source={imageUrl}
-                    style={styles.image}
-                    contentFit="cover"
-                    showLoading={true}
-                />
+                <SharedElement id={`album-${album.id}`}>
+                    <ImageWithFallback
+                        source={imageUrl}
+                        style={styles.image}
+                        contentFit="cover"
+                        showLoading={false}
+                        transition={0}
+                    />
+                </SharedElement>
 
                 <Gradient
                     colors={['transparent', dominantColor + 'FF']}
@@ -138,22 +156,7 @@ const AlbumHeader = ({
     );
 };
 
-// Función auxiliar para formatear tipo de álbum
-const formatAlbumType = (type) => {
-    if (!type) return 'Álbum';
-    const types = {
-        'ep': 'EP',
-        'single': 'Single',
-        'album': 'Álbum',
-        'live': 'En Vivo',
-        'compilation': 'Compilación',
-        'remix': 'Remix',
-        'soundtrack': 'Banda Sonora',
-        'audiobook': 'Audiolibro'
-    };
-    return types[type.toLowerCase()] || type;
-};
-
+// ... (styles se mantienen igual)
 const styles = StyleSheet.create({
     backButton: {
         position: 'absolute',
