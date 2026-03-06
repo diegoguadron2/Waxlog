@@ -1,233 +1,212 @@
+// navigation/AppNavigator.js
 import React, { useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+
+// Screens principales (solo los 3 estados)
+import ListenedScreen from '../screens/ListenedScreen';
+import ListeningScreen from '../screens/ListeningScreen';
+import ToListenScreen from '../screens/ToListenScreen';
+
+// Otras screens
 import SearchScreen from '../screens/SearchScreen';
 import ArtistScreen from '../screens/ArtistScreen';
 import AlbumScreen from '../screens/AlbumScreen';
 import TrackScreen from '../screens/TrackScreen';
-import LibraryScreen from '../screens/LibraryScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ListsScreen from '../screens/ListsScreen';
 import ArtistsAlbumsScreen from '../screens/ArtistsAlbumsScreen';
-import SettingsScreen from '../screens/SettingsScreen';
 import SaveAlbumScreen from '../screens/SaveAlbumScreen';
 import GenreScreen from '../screens/GenreScreen';
-import { CardStyleInterpolators } from '@react-navigation/stack';
+import SettingsScreen from '../screens/SettingsScreen';
+
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Para transiciones suaves entre pantallas
-const screenOptions = {
-  cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
-  transitionSpec: {
-    open: {
-      animation: 'spring',
-      config: {
-        stiffness: 1000,
-        damping: 50,
-        mass: 3,
-        overshootClamping: true,
-        restDisplacementThreshold: 0.01,
-        restSpeedThreshold: 0.01,
-      },
-    },
-    close: {
-      animation: 'spring',
-      config: {
-        stiffness: 1000,
-        damping: 50,
-        mass: 3,
-        overshootClamping: true,
-        restDisplacementThreshold: 0.01,
-        restSpeedThreshold: 0.01,
-      },
-    },
-  },
-};
-
-// Configuración de animación suave para todos los stacks
-const stackAnimationOptions = {
+// Configuración de animaciones para las pantallas de estado
+const stateStackAnimationOptions = {
   headerShown: false,
-  animation: 'slide_from_right',
-  animationDuration: 350,
-  gestureEnabled: true,
-  gestureDirection: 'horizontal',
-  contentStyle: {
-    backgroundColor: 'transparent',
-  },
+  contentStyle: { backgroundColor: 'transparent' },
+  animation: 'slide_from_right', // Animación básica de deslizamiento
+  animationDuration: 300, // Duración de la animación en ms
+  gestureEnabled: true, // Habilitar gestos para navegar hacia atrás
+  gestureDirection: 'horizontal', // Dirección del gesto
 };
 
-// Stack para la sección de Búsqueda
-const SearchStack = () => (
-  <Stack.Navigator screenOptions={stackAnimationOptions}>
-    <Stack.Screen name="SearchMain" component={SearchScreen} />
-    <Stack.Screen name="Artist" component={ArtistScreen} />
-    <Stack.Screen name="Album" component={AlbumScreen} />
-    <Stack.Screen name="Track" component={TrackScreen} />
-    <Stack.Screen name="Genre" component={GenreScreen} />
-  </Stack.Navigator>
-);
+// Stack para las pantallas de los 3 estados con animaciones
+const StateStack = ({ state }) => {
+  const getComponent = () => {
+    switch(state) {
+      case 'listened': return ListenedScreen;
+      case 'listening': return ListeningScreen;
+      case 'to_listen': return ToListenScreen;
+      default: return ListenedScreen;
+    }
+  };
 
-// Stack para la sección de Biblioteca (CON SAVEALBUM)
-const LibraryStack = () => (
-  <Stack.Navigator
-    screenOptions={{
+  return (
+    <Stack.Navigator screenOptions={stateStackAnimationOptions}>
+      <Stack.Screen name={`${state}Main`} component={getComponent()} />
+      <Stack.Screen 
+        name="Album" 
+        component={AlbumScreen} 
+        options={{
+          animation: 'fade', // Animación de fade para entrar a Album
+          animationDuration: 300,
+        }}
+      />
+      <Stack.Screen 
+        name="Artist" 
+        component={ArtistScreen}
+        options={{
+          animation: 'slide_from_bottom', // Animación desde abajo para Artist
+          animationDuration: 300,
+        }}
+      />
+      <Stack.Screen 
+        name="Track" 
+        component={TrackScreen}
+        options={{
+          animation: 'slide_from_right',
+          animationDuration: 300,
+        }}
+      />
+      <Stack.Screen 
+        name="SaveAlbum" 
+        component={SaveAlbumScreen}
+        options={{
+          animation: 'fade',
+          animationDuration: 300,
+        }}
+      />
+      <Stack.Screen 
+        name="Genre" 
+        component={GenreScreen}
+        options={{
+          animation: 'slide_from_right',
+          animationDuration: 300,
+        }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+// Stack principal (sin cambios en animaciones)
+const MainStackNavigator = () => (
+  <Stack.Navigator 
+    screenOptions={{ 
       headerShown: false,
-      gestureEnabled: true,
-      gestureDirection: 'horizontal',
-      contentStyle: {
-        backgroundColor: 'transparent',
-      },
+      contentStyle: { backgroundColor: 'transparent' }
     }}
   >
-    <Stack.Screen name="LibraryMain" component={LibraryScreen} />
-
-    {/* Configuración de fade para AlbumScreen */}
-    <Stack.Screen
-      name="Album"
-      component={AlbumScreen}
-      options={{
-        // Animación de fade simple
-        animation: 'fade', // 👈 Cambiar de 'none' a 'fade'
-        animationDuration: 300, // Duración en ms
-      }}
-    />
-
+    <Stack.Screen name="Tabs" component={TabNavigator} />
+    <Stack.Screen name="Home" component={HomeScreen} />
+    <Stack.Screen name="Lists" component={ListsScreen} />
+    <Stack.Screen name="ArtistsAlbums" component={ArtistsAlbumsScreen} />
+    <Stack.Screen name="Search" component={SearchScreen} />
+    <Stack.Screen name="Settings" component={SettingsScreen} />
     <Stack.Screen name="Artist" component={ArtistScreen} />
+    <Stack.Screen name="Album" component={AlbumScreen} />
     <Stack.Screen name="Track" component={TrackScreen} />
     <Stack.Screen name="SaveAlbum" component={SaveAlbumScreen} />
     <Stack.Screen name="Genre" component={GenreScreen} />
   </Stack.Navigator>
 );
 
-// Stack para la sección de Inicio
-const HomeStack = () => (
-  <Stack.Navigator screenOptions={stackAnimationOptions}>
-    <Stack.Screen name="HomeMain" component={HomeScreen} />
-    <Stack.Screen name="Album" component={AlbumScreen} />
-    <Stack.Screen name="Artist" component={ArtistScreen} />
-    <Stack.Screen name="Track" component={TrackScreen} />
-    <Stack.Screen name="Genre" component={GenreScreen} />
-  </Stack.Navigator>
-);
+// Componente personalizado para el TabBar (sin cambios)
+const CustomTabBar = ({ state, descriptors, navigation }) => {
+  return (
+    <View style={styles.tabBarContainer}>
+      {state.routes.map((route, index) => {
+        const { options } = descriptors[route.key];
+        const label = options.tabBarLabel || options.title || route.name;
+        
+        const isFocused = state.index === index;
 
-// Stack para la sección de Listas
-const ListsStack = () => (
-  <Stack.Navigator screenOptions={stackAnimationOptions}>
-    <Stack.Screen name="ListsMain" component={ListsScreen} />
-    <Stack.Screen name="Album" component={AlbumScreen} />
-    <Stack.Screen name="Artist" component={ArtistScreen} />
-    <Stack.Screen name="Track" component={TrackScreen} />
-    <Stack.Screen name="Genre" component={GenreScreen} />
-  </Stack.Navigator>
-);
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
 
-// Stack para la sección de Colección
-const ArtistsAlbumsStack = () => (
-  <Stack.Navigator screenOptions={stackAnimationOptions}>
-    <Stack.Screen name="ArtistsAlbumsMain" component={ArtistsAlbumsScreen} />
-    <Stack.Screen name="Artist" component={ArtistScreen} />
-    <Stack.Screen name="Album" component={AlbumScreen} />
-    <Stack.Screen name="Track" component={TrackScreen} />
-    <Stack.Screen name="Genre" component={GenreScreen} />
-  </Stack.Navigator>
-);
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        };
 
-// Stack para la sección de Ajustes
-const SettingsStack = () => (
-  <Stack.Navigator screenOptions={stackAnimationOptions}>
-    <Stack.Screen name="SettingsMain" component={SettingsScreen} />
-    <Stack.Screen name="Genre" component={GenreScreen} />
-  </Stack.Navigator>
-);
-// Al final del archivo, antes del export default
-export const tabBarStyle = {
-  position: 'absolute',
-  bottom: 16,
-  left: 24,
-  right: 24,
-  height: 55,
-  backgroundColor: 'transparent',
-  borderTopWidth: 0,
-  elevation: 0,
-  shadowOpacity: 0,
-  borderRadius: 40,
-  paddingHorizontal: 12,
-  paddingBottom: 10,
-  display: 'flex',
+        let iconName;
+        if (route.name === 'Escuchados') iconName = 'checkmark-circle';
+        else if (route.name === 'Escuchando') iconName = 'headset';
+        else if (route.name === 'Por escuchar') iconName = 'time';
+        
+        if (!isFocused) {
+          iconName = iconName + '-outline';
+        }
+
+        return (
+          <TouchableOpacity
+            key={index}
+            onPress={onPress}
+            style={styles.tabItem}
+          >
+            <Ionicons 
+              name={iconName} 
+              size={26} 
+              color={isFocused ? '#FFFFFF' : 'rgba(255,255,255,0.4)'} 
+            />
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
 };
-// 🔴 NO EXPORTAMOS EL ESTILO
+
+// Tab Navigator (sin cambios)
+const TabNavigator = () => (
+  <Tab.Navigator
+    tabBar={props => <CustomTabBar {...props} />}
+    screenOptions={{
+      headerShown: false,
+    }}
+  >
+    <Tab.Screen name="Escuchados" children={() => <StateStack state="listened" />} />
+    <Tab.Screen name="Escuchando" children={() => <StateStack state="listening" />} />
+    <Tab.Screen name="Por escuchar" children={() => <StateStack state="to_listen" />} />
+  </Tab.Navigator>
+);
+
+const styles = StyleSheet.create({
+  tabBarContainer: {
+    position: 'absolute',
+    bottom: 15,
+    left: 80,
+    right: 80,
+    height: 50,
+    backgroundColor: 'rgba(18, 18, 18, 0.75)',
+    borderRadius: 40,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+});
 
 export default function AppNavigator() {
   const navigationRef = useRef(null);
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          tabBarIcon: ({ focused, color, size }) => {
-            let iconName;
-            if (route.name === 'Buscar') iconName = 'search';
-            else if (route.name === 'Inicio') iconName = 'home';
-            else if (route.name === 'Biblioteca') iconName = 'library';
-            else if (route.name === 'Listas') iconName = 'list';
-            else if (route.name === 'Colección') iconName = 'albums';
-            else if (route.name === 'Ajustes') iconName = 'settings';
-
-            // Versión outline cuando no está enfocado
-            if (!focused) {
-              iconName = iconName + '-outline';
-            }
-
-            return <Ionicons name={iconName} size={26} color={color} />;
-          },
-          tabBarActiveTintColor: '#ffffff',
-          tabBarInactiveTintColor: 'rgba(255,255,255,0.4)',
-          tabBarShowLabel: false,
-          tabBarStyle: {
-            position: 'absolute',
-            bottom: 24,
-            left: 24,
-            right: 24,
-            height: 70,
-            backgroundColor: 'transparent',
-            borderTopWidth: 0,
-            elevation: 0,
-            shadowOpacity: 0,
-            borderRadius: 40,
-            paddingHorizontal: 12,
-            paddingBottom: 8,
-            display: 'flex',
-          },
-          tabBarBackground: () => (
-            <BlurView
-              tint="dark"
-              intensity={50}
-              style={{
-                ...StyleSheet.absoluteFillObject,
-                borderRadius: 40,
-                overflow: 'hidden',
-              }}
-            />
-          ),
-          headerShown: false,
-          tabBarItemStyle: {
-            paddingVertical: 10,
-            marginHorizontal: 6,
-          },
-        })}
-      >
-        <Tab.Screen name="Inicio" component={HomeStack} />
-        <Tab.Screen name="Listas" component={ListsStack} />
-        <Tab.Screen name="Colección" component={ArtistsAlbumsStack} />
-        <Tab.Screen name="Biblioteca" component={LibraryStack} />
-        <Tab.Screen name="Buscar" component={SearchStack} />
-        <Tab.Screen name="Ajustes" component={SettingsStack} />
-      </Tab.Navigator>
+      <MainStackNavigator />
     </NavigationContainer>
   );
 }

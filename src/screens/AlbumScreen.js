@@ -6,10 +6,11 @@ import {
   Dimensions,
   StyleSheet,
   TouchableOpacity,
-  Text, Animated,
+  Text,
+  Animated, // 👈 IMPORTANTE: Animated de React Native
 } from 'react-native';
 import ImageColors from 'react-native-image-colors';
-import { Image } from 'expo-image'; //  IMPORTANTE: Importar Image de expo-image
+import { Image } from 'expo-image';
 import { useAlbumData } from '../hooks/useAlbumData';
 import { Ionicons } from '@expo/vector-icons';
 // Componentes de album
@@ -19,6 +20,7 @@ import TracksList from '../components/album/TracksList';
 import AlbumInfo from '../components/album/AlbumInfo';
 import RatingModal from '../components/album/RatingModal';
 import StateSelector from '../components/album/StateSelector';
+
 const { width, height } = Dimensions.get('window');
 
 const AlbumSkeleton = () => (
@@ -83,10 +85,38 @@ export default function AlbumScreen({ route, navigation }) {
   const [imageUrl, setImageUrl] = useState('');
   const [expandedComments, setExpandedComments] = useState({});
   const [activeInfoTab, setActiveInfoTab] = useState('tracks');
-  const [imageLoading, setImageLoading] = useState(true); // Estado para imagen
-  const [contentReady, setContentReady] = useState(false); //  NUEVO
-  const contentOpacity = useRef(new Animated.Value(0)).current; //  NUEVO
-  const contentTranslateY = useRef(new Animated.Value(20)).current; //  NUEVO
+  const [imageLoading, setImageLoading] = useState(true);
+  const [contentReady, setContentReady] = useState(false);
+
+  // 👇 VALOR ANIMADO PARA EL SCROLL
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // 👇 ESTILOS ANIMADOS PARA LA IMAGEN (PARALLAX)
+  const imageAnimatedStyle = {
+    transform: [
+      {
+        // Escala: 1 + (desplazamiento negativo * factor)
+        scale: scrollY.interpolate({
+          inputRange: [-200, 0, 200],
+          outputRange: [1.5, 1, 0.8],
+          extrapolate: 'clamp',
+        }),
+      },
+      {
+        // Desplazamiento vertical: la imagen se mueve más lento que el scroll
+        translateY: scrollY.interpolate({
+          inputRange: [-200, 0, 200],
+          outputRange: [50, 0, -50],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+  };
+
+  // 👇 ESTILOS ANIMADOS PARA EL CONTENIDO (OPCIONAL)
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const contentTranslateY = useRef(new Animated.Value(20)).current;
+
   useEffect(() => {
     console.log('AlbumScreen montado con params:', { initialAlbum, artistName, artistId });
     updateAlbum(initialAlbum || {});
@@ -100,7 +130,6 @@ export default function AlbumScreen({ route, navigation }) {
     }
   }, [refresh]);
 
-  // useEffect separado para manejar la imagen cuando album esté disponible
   useEffect(() => {
     const loadImage = async () => {
       if (album?.cover) {
@@ -108,8 +137,6 @@ export default function AlbumScreen({ route, navigation }) {
           ? album.cover.replace('/250x250-', '/1000x1000-')
           : album.cover;
         setImageUrl(largeUrl);
-
-        // Precargar y obtener colores
         await prefetchAndLoadImage(largeUrl);
       }
     };
@@ -117,7 +144,7 @@ export default function AlbumScreen({ route, navigation }) {
     if (album) {
       loadImage();
     }
-  }, [album]); // Dependencia en album, no en album?.cover
+  }, [album]);
 
   useEffect(() => {
     navigation.getParent()?.setOptions({
@@ -139,20 +166,16 @@ export default function AlbumScreen({ route, navigation }) {
     };
   }, [navigation]);
 
-
   // Efecto para animar el contenido cuando la imagen esté lista
   useEffect(() => {
     if (!imageLoading) {
-      // Pequeño retraso para que primero se muestre la imagen
       setTimeout(() => {
         setContentReady(true);
-
-        // Animar la entrada del contenido
         Animated.parallel([
           Animated.timing(contentOpacity, {
             toValue: 1,
             duration: 400,
-            useNativeDriver: true, // Importante para rendimiento
+            useNativeDriver: true,
           }),
           Animated.spring(contentTranslateY, {
             toValue: 0,
@@ -163,24 +186,16 @@ export default function AlbumScreen({ route, navigation }) {
         ]).start();
       }, 50);
     }
-  }, [imageLoading]); // Depende de imageLoading
+  }, [imageLoading]);
 
   const prefetchAndLoadImage = async (url) => {
     try {
       setImageLoading(true);
-
-      // Precargar la imagen
       await Image.prefetch(url);
-
-      // Pequeña pausa para asegurar que el caché esté listo
       await new Promise(resolve => setTimeout(resolve, 50));
-
-      // Obtener colores AHORA que la imagen está en caché y album existe
       if (album) {
         await getImageColors(url);
       }
-
-      // Indicar que la imagen está lista
       setImageLoading(false);
     } catch (error) {
       console.error('Error con imagen:', error);
@@ -233,7 +248,6 @@ export default function AlbumScreen({ route, navigation }) {
     }));
   };
 
-  // Mostrar skeleton si loading (datos) O imageLoading (imagen no lista)
   if (loading || imageLoading) {
     return <AlbumSkeleton />;
   }
@@ -259,7 +273,17 @@ export default function AlbumScreen({ route, navigation }) {
         isFavorite={isFavorite}
       />
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* 👇 CAMBIAMOS ScrollView por Animated.ScrollView */}
+      <Animated.ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true } // 👈 IMPORTANTE: usar native driver
+        )}
+        scrollEventThrottle={16} // 👈 16ms = 60fps
+      >
         <AlbumHeader
           album={album}
           albumDetails={albumDetails}
@@ -274,13 +298,15 @@ export default function AlbumScreen({ route, navigation }) {
           onSaveAlbum={saveAlbum}
           onShowStateModal={() => setShowStateModal(true)}
           onGoBack={() => navigation.goBack()}
+          // 👇 PASAMOS LOS ESTILOS ANIMADOS
+          imageAnimatedStyle={imageAnimatedStyle}
         />
 
-        <Animated.View w style={[  //  Cambiado de View a Animated.View
+        <Animated.View style={[
           styles.content,
           {
-            opacity: contentOpacity,          // Animación de fade
-            transform: [{ translateY: contentTranslateY }] // Animación de desplazamiento
+            opacity: contentOpacity,
+            transform: [{ translateY: contentTranslateY }]
           }
         ]}>
           <AlbumComment
@@ -341,7 +367,7 @@ export default function AlbumScreen({ route, navigation }) {
             />
           )}
         </Animated.View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

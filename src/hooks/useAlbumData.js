@@ -63,8 +63,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                 setAlbumDetails(localAlbum);
 
                 const savedTracks = await db.getAllAsync(
-                    `SELECT * FROM tracks WHERE album_id = ? ORDER BY track_number`,
-                    [localAlbum.id]
+                    `SELECT * FROM tracks WHERE album_id = ? ORDER BY id`, [localAlbum.id]
                 );
 
                 if (savedTracks.length > 0) {
@@ -196,7 +195,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                             [
                                 newAlbumId,
                                 track.title,
-                                track.track_position || i + 1,
+                                track.track_position,
                                 track.duration,
                                 now
                             ]

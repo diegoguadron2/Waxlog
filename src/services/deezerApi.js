@@ -52,7 +52,7 @@ export const searchGenres = async (query, limit = 25) => {
   try {
     const response = await deezerClient.get('/genre');
     const allGenres = response.data.data || [];
-    const filteredGenres = allGenres.filter(genre => 
+    const filteredGenres = allGenres.filter(genre =>
       genre.name.toLowerCase().includes(query.toLowerCase())
     );
     return filteredGenres.slice(0, limit);
@@ -135,10 +135,66 @@ export const getRelatedArtists = async (artistId) => {
 // Obtener tracks de un álbum
 export const getAlbumTracks = async (albumId) => {
   try {
-    const response = await deezerClient.get(`/album/${albumId}/tracks`);
-    return response.data;
+    let allTracks = [];
+    let nextUrl = null;
+    let pageCount = 0;
+
+    console.log(`📀 Obteniendo tracks del álbum ${albumId}...`);
+
+    // Primera petición
+    const firstResponse = await deezerClient.get(`/album/${albumId}/tracks`);
+
+    if (!firstResponse.data || !firstResponse.data.data) {
+      console.log('⚠️ No se encontraron tracks');
+      return { data: [] };
+    }
+
+    // Agregar tracks de la primera página
+    allTracks = [...firstResponse.data.data];
+    nextUrl = firstResponse.data.next;
+
+    console.log(`📊 Página 1: ${firstResponse.data.data.length} tracks (Total acumulado: ${allTracks.length})`);
+
+    // Mientras haya una URL "next", seguir pidiendo más páginas
+    while (nextUrl) {
+      pageCount++;
+
+      // Extraer el índice de la URL para logging
+      const nextPageMatch = nextUrl.match(/index=(\d+)/);
+      const nextIndex = nextPageMatch ? nextPageMatch[1] : 'desconocido';
+
+      console.log(`⏩ Página ${pageCount + 1} (desde índice ${nextIndex})...`);
+
+      // Hacer petición a la siguiente página
+      const nextResponse = await deezerClient.get(nextUrl);
+
+      if (nextResponse.data && nextResponse.data.data) {
+        const newTracks = nextResponse.data.data;
+        allTracks = [...allTracks, ...newTracks];
+        console.log(`📊 Página ${pageCount + 1}: ${newTracks.length} tracks (Total acumulado: ${allTracks.length})`);
+
+        // Actualizar nextUrl para la siguiente iteración
+        nextUrl = nextResponse.data.next;
+      } else {
+        // Si no hay datos, salir del bucle
+        nextUrl = null;
+      }
+
+      // Pequeña pausa para no saturar la API
+      if (nextUrl) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+
+    console.log(`✅ Total final: ${allTracks.length} tracks obtenidos del álbum ${albumId}`);
+
+    return {
+      data: allTracks,
+      total: allTracks.length,
+    };
+
   } catch (error) {
-    console.error('Error obteniendo tracks del álbum:', error);
+    console.error('❌ Error obteniendo tracks del álbum con paginación:', error);
     return { data: [] };
   }
 };

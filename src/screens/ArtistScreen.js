@@ -1,5 +1,5 @@
 // screens/ArtistScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  Animated, // 👈 IMPORTAR Animated
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,11 +69,39 @@ export default function ArtistScreen({ route, navigation }) {
   const [backgroundColor, setBackgroundColor] = useState('#000000');
   const [activeTab, setActiveTab] = useState('discography');
   const [albums, setAlbums] = useState([]);
+  const [filteredAlbums, setFilteredAlbums] = useState([]);
   const [related, setRelated] = useState([]);
   const [isConnected, setIsConnected] = useState(null);
   const [localArtistId, setLocalArtistId] = useState(null);
   const [connectionChecked, setConnectionChecked] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // 👇 ESTADOS PARA FILTROS
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'album', 'ep', 'single', 'live', 'compilation'
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+
+  // 👇 VALOR ANIMADO PARA EL SCROLL
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // 👇 ESTILOS ANIMADOS PARA LA IMAGEN (PARALLAX)
+  const imageAnimatedStyle = {
+    transform: [
+      {
+        scale: scrollY.interpolate({
+          inputRange: [-200, 0, 200],
+          outputRange: [1.5, 1, 0.8],
+          extrapolate: 'clamp',
+        }),
+      },
+      {
+        translateY: scrollY.interpolate({
+          inputRange: [-200, 0, 200],
+          outputRange: [50, 0, -50],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+  };
 
   // Ocultar el tab navigator
   useEffect(() => {
@@ -183,7 +212,7 @@ export default function ArtistScreen({ route, navigation }) {
         loadLocalAlbumsOnly();
       }
     }
-  }, [localArtistId, isConnected, connectionChecked, activeTab]);
+  }, [localArtistId, isConnected, connectionChecked]);
 
   // Manejar cambios de pestaña
   useEffect(() => {
@@ -191,6 +220,21 @@ export default function ArtistScreen({ route, navigation }) {
       loadRelatedArtists();
     }
   }, [activeTab, isConnected, connectionChecked]);
+
+  // 👇 EFECTO PARA FILTRAR ÁLBUMES CUANDO CAMBIA EL FILTRO ACTIVO
+  useEffect(() => {
+    if (albums.length > 0) {
+      if (activeFilter === 'all') {
+        setFilteredAlbums(albums);
+      } else {
+        const filtered = albums.filter(album => {
+          const type = (album.record_type || album.displayType || '').toLowerCase();
+          return type === activeFilter.toLowerCase();
+        });
+        setFilteredAlbums(filtered);
+      }
+    }
+  }, [activeFilter, albums]);
 
   const getImageColors = async (imageUrl) => {
     try {
@@ -269,6 +313,7 @@ export default function ArtistScreen({ route, navigation }) {
         }));
 
         setAlbums(albumsList);
+        setFilteredAlbums(albumsList);
       });
     } catch (error) {
       console.error('Error cargando álbumes locales:', error);
@@ -341,12 +386,15 @@ export default function ArtistScreen({ route, navigation }) {
             });
 
             setAlbums(combinedAlbums);
+            setFilteredAlbums(combinedAlbums);
           } catch (apiError) {
             console.error('Error cargando álbumes de API:', apiError);
             setAlbums(albumsList);
+            setFilteredAlbums(albumsList);
           }
         } else {
           setAlbums(albumsList);
+          setFilteredAlbums(albumsList);
         }
       });
     } catch (error) {
@@ -379,6 +427,72 @@ export default function ArtistScreen({ route, navigation }) {
     return dateString.split('-')[0];
   };
 
+  // 👇 FUNCIÓN PARA OBTENER EL TEXTO DEL FILTRO ACTIVO
+  const getActiveFilterLabel = () => {
+    const filters = {
+      'all': 'Todos',
+      'album': 'Álbumes',
+      'ep': 'EPs',
+      'single': 'Singles',
+      'live': 'En Vivo',
+      'compilation': 'Compilaciones'
+    };
+    return filters[activeFilter] || 'Filtrar';
+  };
+
+  // 👇 MENÚ DE FILTROS
+  const renderFilterMenu = () => {
+    if (!showFilterMenu) return null;
+
+    const filterOptions = [
+      { id: 'all', label: 'Todos', icon: 'albums' },
+      { id: 'album', label: 'Álbumes', icon: 'disc' },
+      { id: 'ep', label: 'EPs', icon: 'disc-outline' },
+      { id: 'single', label: 'Singles', icon: 'musical-note' },
+      { id: 'live', label: 'En Vivo', icon: 'mic' },
+      { id: 'compilation', label: 'Compilaciones', icon: 'albums-outline' },
+    ];
+
+    return (
+      <TouchableOpacity 
+        style={styles.filterMenuOverlay}
+        activeOpacity={1}
+        onPress={() => setShowFilterMenu(false)}
+      >
+        <View style={styles.filterMenu}>
+          {filterOptions.map(option => (
+            <TouchableOpacity
+              key={option.id}
+              style={[
+                styles.filterOption,
+                activeFilter === option.id && styles.activeFilterOption
+              ]}
+              onPress={() => {
+                setActiveFilter(option.id);
+                setShowFilterMenu(false);
+              }}
+            >
+              <Ionicons
+                name={option.icon}
+                size={18}
+                color={activeFilter === option.id ? '#9333EA' : 'rgba(255,255,255,0.5)'}
+              />
+              <Text style={[
+                styles.filterOptionText,
+                activeFilter === option.id && styles.activeFilterOptionText
+              ]}>
+                {option.label}
+              </Text>
+              {activeFilter === option.id && (
+                <Ionicons name="checkmark" size={18} color="#9333EA" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   // Si está cargando, mostrar skeleton
   if (loading || !connectionChecked) {
     return (
@@ -408,10 +522,17 @@ export default function ArtistScreen({ route, navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
-      <ScrollView
+      {renderFilterMenu()}
+
+      <Animated.ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -429,13 +550,15 @@ export default function ArtistScreen({ route, navigation }) {
         </TouchableOpacity>
 
         <View style={styles.imageWrapper}>
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.image}
-            contentFit="cover"
-            transition={300}
-            recyclingKey={`artist-${artist.id}`}
-          />
+          <Animated.View style={[StyleSheet.absoluteFill, imageAnimatedStyle]}>
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.image}
+              contentFit="cover"
+              transition={300}
+              recyclingKey={`artist-${artist.id}`}
+            />
+          </Animated.View>
 
           <LinearGradient
             colors={['transparent', backgroundColor]}
@@ -458,11 +581,6 @@ export default function ArtistScreen({ route, navigation }) {
               <Text style={styles.statLabel}>oyentes</Text>
             </View>
           )}
-          <View style={styles.statItem}>
-            <Ionicons name="albums" size={20} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.statValue}>{localArtistId ? 1 : 0}</Text>
-            <Text style={styles.statLabel}>en tu biblioteca</Text>
-          </View>
           {albums.length > 0 && (
             <View style={styles.statItem}>
               <Ionicons name="musical-notes" size={20} color="rgba(255,255,255,0.8)" />
@@ -509,106 +627,142 @@ export default function ArtistScreen({ route, navigation }) {
         </View>
 
         {activeTab === 'discography' ? (
-          albumsLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="rgba(255,255,255,0.7)" />
-            </View>
-          ) : albums.length > 0 ? (
-            <View>
-              {albums.map((album) => (
-                <TouchableOpacity
-                  key={album.id || album.deezer_id}
-                  style={styles.albumCard}
-                  onPress={() => navigation.navigate('Album', {
-                    album: {
-                      id: album.deezer_id || album.id,
-                      title: album.title,
-                      cover: album.cover_medium || album.cover,
-                    },
-                    artistName: artist.name,
-                    artistId: artist.id,
-                    refresh: true
-                  })}
-                >
-                  <Image
-                    source={{ uri: album.cover_medium || album.cover }}
-                    style={StyleSheet.absoluteFillObject}
-                    blurRadius={15}
-                    contentFit="cover"
-                  />
-                  <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
+          <>
+            {/* Barra de filtros */}
+            <View style={styles.filterBar}>
+              <TouchableOpacity
+                style={styles.filterButton}
+                onPress={() => setShowFilterMenu(true)}
+              >
+                <Ionicons name="funnel-outline" size={16} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.filterButtonText}>
+                  {getActiveFilterLabel()}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.5)" />
+              </TouchableOpacity>
 
-                  <View style={styles.albumCardContent}>
+              {activeFilter !== 'all' && (
+                <TouchableOpacity
+                  style={styles.clearFilterButton}
+                  onPress={() => setActiveFilter('all')}
+                >
+                  <Text style={styles.clearFilterText}>Limpiar</Text>
+                  <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.5)" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {albumsLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="rgba(255,255,255,0.7)" />
+              </View>
+            ) : filteredAlbums.length > 0 ? (
+              <View>
+                {filteredAlbums.map((album) => (
+                  <TouchableOpacity
+                    key={album.id || album.deezer_id}
+                    style={styles.albumCard}
+                    onPress={() => navigation.navigate('Album', {
+                      album: {
+                        id: album.deezer_id || album.id,
+                        title: album.title,
+                        cover: album.cover_medium || album.cover,
+                      },
+                      artistName: artist.name,
+                      artistId: artist.id,
+                      refresh: true
+                    })}
+                  >
                     <Image
                       source={{ uri: album.cover_medium || album.cover }}
-                      style={styles.albumCover}
+                      style={StyleSheet.absoluteFillObject}
+                      blurRadius={15}
                       contentFit="cover"
                     />
-                    <View style={styles.albumInfo}>
-                      <Text style={styles.albumTitle} numberOfLines={1}>
-                        {album.title}
-                      </Text>
-                      <View style={styles.albumDetails}>
-                        <Text style={styles.albumYear}>
-                          {formatDate(album.release_date)}
+                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
+
+                    <View style={styles.albumCardContent}>
+                      <Image
+                        source={{ uri: album.cover_medium || album.cover }}
+                        style={styles.albumCover}
+                        contentFit="cover"
+                      />
+                      <View style={styles.albumInfo}>
+                        <Text style={styles.albumTitle} numberOfLines={1}>
+                          {album.title}
                         </Text>
-                        <Text style={styles.albumType}>
-                          {album.displayType}
-                        </Text>
-                        {album.nb_tracks && (
-                          <>
-                            <Text style={styles.dot}>•</Text>
-                            <Text style={styles.albumTracks}>
-                              {album.nb_tracks} {album.nb_tracks === 1 ? 'canción' : 'canciones'}
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                      <View style={styles.albumFooter}>
-                        {album.isDownloaded && (
-                          <View style={styles.downloadedBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color="#4ADE80" />
-                            <Text style={styles.downloadedText}>En biblioteca</Text>
-                          </View>
-                        )}
-                        {album.average_rating > 0 && (
-                          <View style={styles.ratingBadge}>
-                            <Ionicons name="star" size={12} color="#FFD700" />
-                            <Text style={styles.ratingText}>
-                              {album.average_rating.toFixed(1)}
-                            </Text>
-                          </View>
-                        )}
+                        <View style={styles.albumDetails}>
+                          <Text style={styles.albumYear}>
+                            {formatDate(album.release_date)}
+                          </Text>
+                          <Text style={styles.albumType}>
+                            {album.displayType}
+                          </Text>
+                          {album.nb_tracks && (
+                            <>
+                              <Text style={styles.dot}>•</Text>
+                              <Text style={styles.albumTracks}>
+                                {album.nb_tracks} {album.nb_tracks === 1 ? 'canción' : 'canciones'}
+                              </Text>
+                            </>
+                          )}
+                        </View>
+                        <View style={styles.albumFooter}>
+                          {album.isDownloaded && (
+                            <View style={styles.downloadedBadge}>
+                              <Ionicons name="checkmark-circle" size={14} color="#4ADE80" />
+                              <Text style={styles.downloadedText}>En biblioteca</Text>
+                            </View>
+                          )}
+                          {album.average_rating > 0 && (
+                            <View style={styles.ratingBadge}>
+                              <Ionicons name="star" size={12} color="#FFD700" />
+                              <Text style={styles.ratingText}>
+                                {album.average_rating.toFixed(1)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Ionicons
-                name={!isConnected && localArtistId ? "cloud-offline-outline" : "albums-outline"}
-                size={48}
-                color="rgba(255,255,255,0.3)"
-              />
-              <Text style={styles.emptyText}>
-                {!isConnected && localArtistId
-                  ? 'No hay álbumes descargados de este artista'
-                  : 'No hay álbumes disponibles'}
-              </Text>
-              {!isConnected && !localArtistId && (
-                <Text style={styles.offlineText}>
-                  Conéctate a internet para ver los álbumes de {artist.name}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name={activeFilter !== 'all' ? "filter-outline" : (!isConnected && localArtistId ? "cloud-offline-outline" : "albums-outline")}
+                  size={48}
+                  color="rgba(255,255,255,0.3)"
+                />
+                <Text style={styles.emptyText}>
+                  {activeFilter !== 'all'
+                    ? `No hay ${getActiveFilterLabel().toLowerCase()} de este artista`
+                    : !isConnected && localArtistId
+                      ? 'No hay álbumes descargados de este artista'
+                      : 'No hay álbumes disponibles'}
                 </Text>
-              )}
-              {!isConnected && localArtistId && albums.length === 0 && (
-                <Text style={styles.offlineText}>
-                  Este artista no tiene álbumes en tu biblioteca
-                </Text>
-              )}
-            </View>
-          )
+                {activeFilter !== 'all' && (
+                  <TouchableOpacity
+                    style={styles.resetFilterButton}
+                    onPress={() => setActiveFilter('all')}
+                  >
+                    <Text style={styles.resetFilterText}>Ver todos los álbumes</Text>
+                  </TouchableOpacity>
+                )}
+                {!isConnected && !localArtistId && activeFilter === 'all' && (
+                  <Text style={styles.offlineText}>
+                    Conéctate a internet para ver los álbumes de {artist.name}
+                  </Text>
+                )}
+                {!isConnected && localArtistId && albums.length === 0 && activeFilter === 'all' && (
+                  <Text style={styles.offlineText}>
+                    Este artista no tiene álbumes en tu biblioteca
+                  </Text>
+                )}
+              </View>
+            )}
+          </>
         ) : (
           <View style={styles.relatedContainer}>
             {!isConnected ? (
@@ -655,7 +809,7 @@ export default function ArtistScreen({ route, navigation }) {
             )}
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -686,6 +840,7 @@ const styles = StyleSheet.create({
     width: width,
     height: height * 0.5,
     position: 'relative',
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
@@ -755,7 +910,7 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   tab: {
     flex: 1,
@@ -775,6 +930,102 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: 'white',
   },
+  
+  // 👇 ESTILOS PARA FILTROS
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  filterButtonText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    marginHorizontal: 4,
+  },
+  clearFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  clearFilterText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    marginRight: 4,
+  },
+  filterMenuOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 1000,
+  },
+  filterMenu: {
+    position: 'absolute',
+    top: 320, // Ajusta según la posición de tu botón
+    left: 20,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 8,
+    zIndex: 1001,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    width: 180,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  activeFilterOption: {
+    backgroundColor: 'rgba(147,51,234,0.1)',
+  },
+  filterOptionText: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginLeft: 10,
+  },
+  activeFilterOptionText: {
+    color: '#9333EA',
+  },
+  resetFilterButton: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(147,51,234,0.1)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(147,51,234,0.3)',
+  },
+  resetFilterText: {
+    color: '#9333EA',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  
+  // 👇 ESTILOS EXISTENTES
   loadingContainer: {
     paddingVertical: 40,
     alignItems: 'center',

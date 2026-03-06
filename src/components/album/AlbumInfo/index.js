@@ -1,10 +1,11 @@
 // components/album/AlbumInfo/index.js
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native'; // 👈 Asegurar importaciones
+import { View, Text, StyleSheet } from 'react-native';
 import GenreChip from './GenreChip';
-import { getRatingColor, formatRating } from '../../shared/RatingBadge'; // 👈 Importar funciones correctas
+import RatingSummary from './RatingSummary'; // 👈 IMPORTAR EL NUEVO COMPONENTE
+import { getRatingColor, formatRating } from '../../shared/RatingBadge';
 
-// Funciones de utilidad
+// Funciones de utilidad (se mantienen igual)
 const formatAlbumType = (type) => {
     if (!type) return 'Álbum';
     const types = {
@@ -42,16 +43,6 @@ const formatDate = (dateString) => {
     }
 };
 
-/**
- * Componente AlbumInfo
- * Muestra información detallada del álbum (géneros, detalles, estadísticas)
- * 
- * @param {Object} props
- * @param {Object} props.albumDetails - Detalles del álbum
- * @param {Array} props.tracks - Lista de canciones
- * @param {number} props.albumRating - Calificación del álbum
- * @param {string} props.dominantColor - Color dominante para los chips
- */
 const AlbumInfo = ({ albumDetails, tracks, albumRating, dominantColor }) => {
     if (!albumDetails) return null;
 
@@ -76,6 +67,13 @@ const AlbumInfo = ({ albumDetails, tracks, albumRating, dominantColor }) => {
 
     return (
         <View style={styles.container}>
+            {/* RESUMEN DE CALIFICACIONES - NUEVA SECCIÓN */}
+            {ratedTracksCount > 0 && (
+                <View style={styles.section}>
+                    <RatingSummary tracks={tracks} />
+                </View>
+            )}
+
             {/* Géneros */}
             {genresList.length > 0 && (
                 <View style={styles.section}>

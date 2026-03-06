@@ -29,7 +29,7 @@ const getRatingColor = (rating) => {
   return colors[index];
 };
 
-// 🔴 COMPONENTE SKELETON PARA HOME SCREEN
+//  COMPONENTE SKELETON PARA HOME SCREEN
 const HomeSkeleton = () => {
   return (
     <View style={[styles.container, { backgroundColor: '#000000' }]}>
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  // 🔴 ESTILOS PARA SKELETONS
+  //  ESTILOS PARA SKELETONS
   skeletonHeaderTitle: {
     width: 150,
     height: 40,

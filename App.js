@@ -1,20 +1,20 @@
 // App.js
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated'; // 👈 IMPORTAR
 import AppNavigator from "./src/navigation/AppNavigator";
 import { initDatabase } from './src/database/Index';
-import { SharedElementProvider, } from './src/context/SharedElementContext'; 
-import {
-  configureReanimatedLogger,
-  ReanimatedLogLevel,
-} from 'react-native-reanimated';
+import { SharedElementProvider } from './src/context/SharedElementContext';
+
+// Configurar Reanimated (menos estricto)
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false, // 👈 Desactiva warnings de renderizado
+});
 
 export default function App() {
   const [isDBReady, setIsDBReady] = useState(false);
-  configureReanimatedLogger({
-  level: ReanimatedLogLevel.warn,
-  strict: true, // Reanimated runs in strict mode by default
-});
+
   useEffect(() => {
     const setupDatabase = async () => {
       try {
@@ -24,7 +24,6 @@ export default function App() {
         setIsDBReady(true);
       } catch (error) {
         console.error('❌ Error inicializando BD:', error);
-        // Aún así, intentamos continuar
         setIsDBReady(true);
       }
     };
@@ -40,9 +39,8 @@ export default function App() {
     );
   }
 
-
   return (
-    <SharedElementProvider> {/* 👈 ENVOLVER AQUÍ */}
+    <SharedElementProvider>
       <AppNavigator />
     </SharedElementProvider>
   );

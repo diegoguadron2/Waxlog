@@ -47,20 +47,20 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
       }
     });
 
-    return filtered.filter(album => album.cover || album.cover_local);
+    return filtered;
   }, []);
 
   // Actualizar filteredAlbums cuando cambian albums, activeTab o sortBy
   useEffect(() => {
     if (albums.length > 0) {
       const cacheKey = `${activeTab}-${sortBy}`;
-      
+
       if (cachedAlbums[cacheKey]) {
         setFilteredAlbums(cachedAlbums[cacheKey]);
       } else {
         const newFilteredData = filterAlbumsLocally(albums, activeTab, sortBy);
         setFilteredAlbums(newFilteredData);
-        
+
         setCachedAlbums(prev => ({
           ...prev,
           [cacheKey]: newFilteredData
@@ -75,7 +75,7 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
 
     console.log(`🔄 Cambiando a pestaña: ${tabId}`);
     setActiveTab(tabId);
-    
+
     // Resetear ordenamiento a reciente por defecto al cambiar de pestaña
     if (sortBy !== 'recent_desc') {
       setSortBy('recent_desc');
@@ -281,12 +281,12 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
       lastFocusTimeRef.current = now;
 
       console.log('📱 LibraryScreen enfocada - actualizando datos...');
-      
+
       if (initialLoadDoneRef.current) {
         refreshData().catch(console.error);
       }
 
-      return () => {};
+      return () => { };
     }, [])
   );
 

@@ -1,54 +1,40 @@
-// screens/LibraryScreen.js
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+// screens/ListenedScreen.js
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   RefreshControl,
   FlatList,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { tabBarStyle } from '../navigation/AppNavigator';
+import { useAlbumsByState } from '../hooks/useAlbumsByState';
+
 // Componentes
 import AlbumCard from '../components/library/AlbumCard';
-import TabBar from '../components/library/TabBar';
 import AlbumSkeleton from '../components/library/AlbumSkeleton';
 import LibraryHeader from '../components/library/LibraryHeader';
 import ControlsBar from '../components/library/ControlsBar';
 import SortMenu from '../components/library/SortMenu';
 import EmptyLibraryState from '../components/library/EmptyLibraryState';
 import SharedElement from '../components/shared/SharedElement';
-// Hooks
-import { useLibraryData } from '../hooks/useLibraryData';
-
-// Constantes
 import { PADDING_HORIZONTAL, GAP, CARD_WIDTH } from '../constants/layout';
 
-export default function LibraryScreen({ navigation }) {
+export default function ListenedScreen({ navigation }) {
   const [viewMode, setViewMode] = useState('grid');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const flatListRef = useRef(null);
 
-  const tabs = [
-    { id: 'listened', label: 'Escuchados', icon: 'checkmark-circle', color: '#4ADE80' },
-    { id: 'listening', label: 'Escuchando', icon: 'headset', color: '#60A5FA' },
-    { id: 'to_listen', label: 'Por escuchar', icon: 'time', color: '#FBBF24' },
-  ];
-
   const {
-    filteredAlbums,
-    activeTab,
+    albums,
     loading,
     refreshing,
     sortBy,
-    tabCounts,
-    handleTabChange,
+    totalCount,
+    sortOptions,
     handleSortChange,
     onRefresh,
-    getSortOptionsForTab,
-  } = useLibraryData(tabs, 'to_listen');
-
-  const sortOptions = getSortOptionsForTab(activeTab);
+  } = useAlbumsByState('listened');
 
   useFocusEffect(
     useCallback(() => {
@@ -68,7 +54,7 @@ export default function LibraryScreen({ navigation }) {
       artistName: album.artist_name,
       artistId: album.artist_deezer_id,
       refresh: true,
-      fromScreen: 'Library',
+      fromScreen: 'Listened',
     });
   }, [navigation]);
 
@@ -80,49 +66,36 @@ export default function LibraryScreen({ navigation }) {
     }
   }, [handleSortChange]);
 
-  const handleLocalTabChange = useCallback((tabId) => {
-    handleTabChange(tabId);
-    setShowSortMenu(false);
-    if (flatListRef.current) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
-    }
-  }, [handleTabChange]);
-
   const renderGridItem = useCallback(({ item }) => (
-    <AlbumCard
-      album={item}
-      viewMode="grid"
-      activeTab={activeTab}
-      onPress={handleAlbumPress}
-      cardWidth={CARD_WIDTH}
-    />
-  ), [activeTab, handleAlbumPress]);
+    <SharedElement id={`album-${item.id}`}>
+      <AlbumCard
+        album={item}
+        viewMode="grid"
+        activeTab="listened"
+        onPress={handleAlbumPress}
+        cardWidth={CARD_WIDTH}
+      />
+    </SharedElement>
+  ), [handleAlbumPress]);
 
   const renderListItem = useCallback(({ item }) => (
-    <AlbumCard
-      album={item}
-      viewMode="list"
-      activeTab={activeTab}
-      onPress={handleAlbumPress}
-    />
-  ), [activeTab, handleAlbumPress]);
+    <SharedElement id={`album-${item.id}`}>
+      <AlbumCard
+        album={item}
+        viewMode="list"
+        activeTab="listened"
+        onPress={handleAlbumPress}
+      />
+    </SharedElement>
+  ), [handleAlbumPress]);
 
   const renderHeader = useCallback(() => (
     <>
       <LibraryHeader
-        totalAlbums={tabCounts.listened + tabCounts.listening + tabCounts.to_listen}
+        totalAlbums={totalCount}
         onAddPress={() => navigation.navigate('SaveAlbum')}
+        title="Escuchados"
       />
-
-      <TabBar
-        tabs={tabs.map(tab => ({
-          ...tab,
-          count: tabCounts[tab.id]
-        }))}
-        activeTab={activeTab}
-        onTabChange={handleLocalTabChange}
-      />
-
       <ControlsBar
         sortLabel={sortOptions.find(o => o.id === sortBy)?.label || 'Ordenar'}
         onSortPress={() => setShowSortMenu(!showSortMenu)}
@@ -130,28 +103,16 @@ export default function LibraryScreen({ navigation }) {
         onViewModeChange={setViewMode}
       />
     </>
-  ), [tabCounts, activeTab, sortOptions, sortBy, showSortMenu, viewMode, navigation, handleLocalTabChange]);
+  ), [totalCount, sortOptions, sortBy, showSortMenu, viewMode, navigation]);
 
-  // Log para debugging
-  useEffect(() => {
-    console.log(`📊 Pestaña activa: ${activeTab} - Álbumes mostrados: ${filteredAlbums.length}`);
-  }, [activeTab, filteredAlbums]);
-
-  if (loading && filteredAlbums.length === 0) {
+  if (loading && albums.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>Mi Biblioteca</Text>
-            <Text style={styles.headerSubtitle}>Cargando tu biblioteca...</Text>
-          </View>
-          <View style={styles.skeletonAddButton} />
-        </View>
-        <View style={styles.tabContainer}>
-          {tabs.map((tab) => (
-            <View key={tab.id} style={[styles.tab, styles.skeletonTab]} />
-          ))}
-        </View>
+        <LibraryHeader
+          totalAlbums={0}
+          onAddPress={() => navigation.navigate('SaveAlbum')}
+          title="Escuchados"
+        />
         <View style={styles.controlsBar}>
           <View style={[styles.controlButton, styles.skeletonControl]} />
           <View style={[styles.viewToggle, styles.skeletonViewToggle]} />
@@ -173,7 +134,7 @@ export default function LibraryScreen({ navigation }) {
 
       <FlatList
         ref={flatListRef}
-        data={filteredAlbums}
+        data={albums}
         renderItem={viewMode === 'grid' ? renderGridItem : renderListItem}
         keyExtractor={(item) => `album-${item.id}-${viewMode}`}
         numColumns={viewMode === 'grid' ? 2 : 1}
@@ -181,13 +142,13 @@ export default function LibraryScreen({ navigation }) {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={!loading ? (
           <EmptyLibraryState
-            activeTab={activeTab}
+            activeTab="listened"
             onAddPress={() => navigation.navigate('SaveAlbum')}
           />
         ) : null}
         contentContainerStyle={[
           styles.scrollContent,
-          filteredAlbums.length === 0 && styles.emptyContent,
+          albums.length === 0 && styles.emptyContent,
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -208,45 +169,11 @@ export default function LibraryScreen({ navigation }) {
   );
 }
 
+// Los estilos son los mismos que ya tenías
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: PADDING_HORIZONTAL,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    color: 'white',
-    fontSize: 28,
-    fontWeight: '300',
-    letterSpacing: 1,
-  },
-  headerSubtitle: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    paddingHorizontal: 10,
-    marginBottom: 16,
-  },
-  tab: {
-    flex: 1,
-    marginHorizontal: 4,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    overflow: 'hidden',
-    paddingVertical: 8,
   },
   controlsBar: {
     flexDirection: 'row',
@@ -284,16 +211,6 @@ const styles = StyleSheet.create({
   columnWrapper: {
     justifyContent: 'space-between',
     marginBottom: GAP,
-  },
-  skeletonAddButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  skeletonTab: {
-    height: 70,
-    backgroundColor: 'rgba(255,255,255,0.02)',
   },
   skeletonControl: {
     width: 100,

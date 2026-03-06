@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     StyleSheet,
     Dimensions,
+    Animated, // 👈 IMPORTAR Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -50,6 +51,8 @@ const AlbumHeader = ({
     onSaveAlbum,
     onShowStateModal,
     onGoBack,
+    // 👇 NUEVA PROP: estilos animados para la imagen (parallax)
+    imageAnimatedStyle,
 }) => {
     const navigation = useNavigation();
 
@@ -88,25 +91,29 @@ const AlbumHeader = ({
                 )}
             </View>
 
-            {/* Imagen de portada */}
+            {/* Contenedor de imagen con parallax */}
             <View style={styles.imageContainer}>
-                <SharedElement id={`album-${album.id}`}>
-                    <ImageWithFallback
-                        source={imageUrl}
-                        style={styles.image}
-                        contentFit="cover"
-                        showLoading={false}
-                        transition={0}
-                    />
-                </SharedElement>
+                {/* 👇 APLICAR LOS ESTILOS ANIMADOS A LA IMAGEN */}
+                <Animated.View style={[StyleSheet.absoluteFill, imageAnimatedStyle]}>
+                    <SharedElement id={`album-${album.id}`}>
+                        <ImageWithFallback
+                            source={imageUrl}
+                            style={styles.image}
+                            contentFit="cover"
+                            showLoading={false}
+                            transition={0}
+                        />
+                    </SharedElement>
+                </Animated.View>
 
+                {/* Gradiente (se mantiene fijo sobre la imagen) */}
                 <Gradient
                     colors={['transparent', dominantColor + 'FF']}
                     style={styles.gradient}
                 />
             </View>
 
-            {/* Información del álbum */}
+            {/* Información del álbum (se mantiene fija) */}
             <View style={styles.infoContainer}>
                 <View style={styles.titleRow}>
                     <View style={styles.titleContainer}>
@@ -156,7 +163,6 @@ const AlbumHeader = ({
     );
 };
 
-// ... (styles se mantienen igual)
 const styles = StyleSheet.create({
     backButton: {
         position: 'absolute',
@@ -191,6 +197,7 @@ const styles = StyleSheet.create({
         width: width,
         height: height * 0.5,
         position: 'relative',
+        overflow: 'hidden', // 👈 IMPORTANTE: ocultar lo que se salga
     },
     image: {
         width: '100%',
@@ -202,10 +209,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: height * 0.2,
+        zIndex: 10, // 👈 Asegurar que el gradiente esté sobre la imagen
     },
     infoContainer: {
         paddingHorizontal: 20,
         marginTop: -50,
+        zIndex: 15, // 👈 Asegurar que la info esté sobre la imagen
     },
     titleRow: {
         flexDirection: 'row',
