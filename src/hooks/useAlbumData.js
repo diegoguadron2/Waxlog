@@ -18,6 +18,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
     const [localAlbumId, setLocalAlbumId] = useState(null);
     const [isFavorite, setIsFavorite] = useState(false);
     const [dominantColor, setDominantColor] = useState('#000000');
+    const [resolvedArtistId, setResolvedArtistId] = useState(artistId || null);
 
     const mountedRef = useRef(true);
     const operationInProgressRef = useRef(false);
@@ -62,6 +63,19 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                 setIsFavorite(localAlbum.is_favorite === 1);
                 setAlbumDetails(localAlbum);
 
+                // Resolver deezer_id del artista desde la BD si no vino en params
+                if (!artistId && localAlbum.artist_id) {
+                    const artistRow = await db.getFirstAsync(
+                        'SELECT deezer_id FROM artists WHERE id = ?',
+                        [localAlbum.artist_id]
+                    );
+                    if (artistRow?.deezer_id) {
+                        setResolvedArtistId(artistRow.deezer_id);
+                    }
+                } else if (artistId) {
+                    setResolvedArtistId(artistId);
+                }
+
                 const savedTracks = await db.getAllAsync(
                     `SELECT * FROM tracks WHERE album_id = ? ORDER BY id`, [localAlbum.id]
                 );
@@ -95,7 +109,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                         }));
                         setTracks(tempTracks);
                     } catch (error) {
-                        console.log('Error cargando tracks de Deezer:', error);
+                        if (__DEV__) console.log('Error cargando tracks de Deezer:', error);
                         setTracks([]);
                     }
                 } else {
@@ -111,7 +125,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         try {
             await checkIfSaved();
         } catch (error) {
-            console.error('Error cargando datos:', error);
+            if (__DEV__) console.error('Error cargando datos:', error);
         } finally {
             if (mountedRef.current) {
                 setLoading(false);
@@ -125,7 +139,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
 
         operationInProgressRef.current = true;
         setLoading(true);
-        console.log('🔄 Guardando álbum');
+        if (__DEV__) console.log('🔄 Guardando álbum');
 
         try {
             await executeDBOperation(async (db) => {
@@ -207,10 +221,10 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
             await waitForDB(800);
             await checkIfSaved();
             Alert.alert('✅ Éxito', 'Álbum guardado correctamente');
-            console.log('✅ Álbum guardado');
+            if (__DEV__) console.log('✅ Álbum guardado');
 
         } catch (error) {
-            console.error('Error guardando álbum:', error);
+            if (__DEV__) console.error('Error guardando álbum:', error);
             Alert.alert('❌ Error', 'No se pudo guardar el álbum: ' + error.message);
         } finally {
             if (mountedRef.current) {
@@ -225,7 +239,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         if (!localAlbumId || operationInProgressRef.current) return;
 
         operationInProgressRef.current = true;
-        console.log(`🔄 Actualizando estado a: ${state}`);
+        if (__DEV__) console.log(`🔄 Actualizando estado a: ${state}`);
 
         try {
             await executeDBOperation(async (db) => {
@@ -238,10 +252,10 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
 
             await waitForDB(300);
             setAlbumState(state);
-            console.log(`✅ Estado actualizado a: ${state}`);
+            if (__DEV__) console.log(`✅ Estado actualizado a: ${state}`);
 
         } catch (error) {
-            console.error('Error actualizando estado:', error);
+            if (__DEV__) console.error('Error actualizando estado:', error);
             Alert.alert('Error', 'No se pudo actualizar el estado');
         } finally {
             operationInProgressRef.current = false;
@@ -253,7 +267,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         if (!localAlbumId || operationInProgressRef.current) return;
 
         operationInProgressRef.current = true;
-        console.log(`🔄 Toggle favorito: ${!isFavorite}`);
+        if (__DEV__) console.log(`🔄 Toggle favorito: ${!isFavorite}`);
 
         try {
             await executeDBOperation(async (db) => {
@@ -267,10 +281,10 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
 
             await waitForDB(300);
             setIsFavorite(!isFavorite);
-            console.log(`✅ Favorito actualizado: ${!isFavorite}`);
+            if (__DEV__) console.log(`✅ Favorito actualizado: ${!isFavorite}`);
 
         } catch (error) {
-            console.error('Error toggling favorito:', error);
+            if (__DEV__) console.error('Error toggling favorito:', error);
             Alert.alert('Error', 'No se pudo actualizar favorito');
         } finally {
             operationInProgressRef.current = false;
@@ -282,7 +296,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         if (!localAlbumId || operationInProgressRef.current) return false;
 
         operationInProgressRef.current = true;
-        console.log('🔄 Eliminando álbum');
+        if (__DEV__) console.log('🔄 Eliminando álbum');
 
         try {
             const album = await executeDBOperation(async (db) => {
@@ -297,11 +311,11 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
             await dbHelpers.deleteAlbumAndCleanup(localAlbumId);
 
             await waitForDB(500);
-            console.log('✅ Álbum eliminado');
+            if (__DEV__) console.log('✅ Álbum eliminado');
             return true;
 
         } catch (error) {
-            console.error('Error eliminando álbum:', error);
+            if (__DEV__) console.error('Error eliminando álbum:', error);
             Alert.alert('Error', 'No se pudo eliminar el álbum');
             return false;
         } finally {
@@ -314,7 +328,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         if (!localAlbumId || operationInProgressRef.current) return false;
 
         operationInProgressRef.current = true;
-        console.log('🔄 Guardando comentario');
+        if (__DEV__) console.log('🔄 Guardando comentario');
 
         try {
             await executeDBOperation(async (db) => {
@@ -327,11 +341,11 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
 
             await waitForDB(300);
             setAlbumComment(comment);
-            console.log('✅ Comentario guardado');
+            if (__DEV__) console.log('✅ Comentario guardado');
             return true;
 
         } catch (error) {
-            console.error('Error guardando comentario:', error);
+            if (__DEV__) console.error('Error guardando comentario:', error);
             Alert.alert('Error', 'No se pudo guardar el comentario');
             return false;
         } finally {
@@ -344,7 +358,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         if (!localAlbumId || operationInProgressRef.current) return;
 
         operationInProgressRef.current = true;
-        console.log(`🔄 Guardando calificación para track ${trackId}: ${rating}`);
+        if (__DEV__) console.log(`🔄 Guardando calificación para track ${trackId}: ${rating}`);
 
         try {
             await executeDBOperation(async (db) => {
@@ -370,10 +384,10 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
 
             await waitForDB(300);
             Alert.alert('Éxito', 'Calificación guardada');
-            console.log('✅ Calificación guardada');
+            if (__DEV__) console.log('✅ Calificación guardada');
 
         } catch (error) {
-            console.error('Error guardando calificación:', error);
+            if (__DEV__) console.error('Error guardando calificación:', error);
             Alert.alert('Error', 'No se pudo guardar la calificación');
         } finally {
             operationInProgressRef.current = false;
@@ -386,7 +400,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
 
         operationInProgressRef.current = true;
         setRefreshing(true);
-        console.log('🔄 Actualizando información desde Deezer');
+        if (__DEV__) console.log('🔄 Actualizando información desde Deezer');
 
         try {
             await executeDBOperation(async (db) => {
@@ -441,10 +455,10 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
             await waitForDB(500);
             await checkIfSaved();
             Alert.alert('✅ Éxito', 'Información del álbum actualizada correctamente');
-            console.log('✅ Información actualizada');
+            if (__DEV__) console.log('✅ Información actualizada');
 
         } catch (error) {
-            console.error('❌ Error actualizando información:', error);
+            if (__DEV__) console.error('❌ Error actualizando información:', error);
             Alert.alert('❌ Error', 'No se pudo actualizar la información: ' + error.message);
         } finally {
             if (mountedRef.current) {
@@ -474,6 +488,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         isFavorite,
         dominantColor,
         setDominantColor,
+        resolvedArtistId,
 
         // Acciones
         loadAlbumData,

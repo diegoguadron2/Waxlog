@@ -1,16 +1,45 @@
-#  WaxLog
+<div align="center">
+
+# 🎵 WaxLog
 
 A personal music journal for Android. Track the albums you've listened to, are currently listening to, or want to listen to — with per-track ratings, statistics, and visual exploration by genre and artist.
 
-##  Download
+[![Build APK](https://github.com/diegoguadron2/Waxlog/actions/workflows/build.yml/badge.svg)](https://github.com/diegoguadron2/Waxlog/actions/workflows/build.yml)
+&nbsp;
+![React Native](https://img.shields.io/badge/React_Native-20232A?style=flat&logo=react&logoColor=61DAFB)
+&nbsp;
+![Expo](https://img.shields.io/badge/Expo_SDK_54-000020?style=flat&logo=expo&logoColor=white)
+&nbsp;
+![SQLite](https://img.shields.io/badge/SQLite-07405E?style=flat&logo=sqlite&logoColor=white)
 
-[![Build APK](https://github.com/diegoguadron2/Waxlog/actions/workflows/build.yml/badge.svg)](https://github.com/TU_USUARIO/waxlog/actions/workflows/build.yml)
+### [⬇️ Download latest APK](https://expo.dev/accounts/diegoguadron2/projects/waxlog/builds)
 
-> **[⬇️ Download latest APK](https://expo.dev/accounts/diegoguadron2/projects/waxlog/builds)**
+</div>
 
 ---
 
-##  Features
+## 📸 Screenshots
+
+<div align="center">
+<table>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/diegoguadron2/Waxlog/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_125943.jpg.jpeg" width="160"/></td>
+    <td><img src="https://raw.githubusercontent.com/diegoguadron2/Waxlog/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130008.jpg.jpeg" width="160"/></td>
+    <td><img src="https://raw.githubusercontent.com/diegoguadron2/Waxlog/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130028.jpg.jpeg" width="160"/></td>
+    <td><img src="https://raw.githubusercontent.com/diegoguadron2/Waxlog/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130051.jpg.jpeg" width="160"/></td>
+  </tr>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/diegoguadron2/Waxlog/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130111.jpg.jpeg" width="160"/></td>
+    <td><img src="https://raw.githubusercontent.com/diegoguadron2/Waxlog/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130129.jpg.jpeg" width="160"/></td>
+    <td><img src="https://raw.githubusercontent.com/diegoguadron2/Waxlog/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130224.jpg.jpeg" width="160"/></td>
+    <td></td>
+  </tr>
+</table>
+</div>
+
+---
+
+## ✨ Features
 
 - **Personal library** — organize albums by status: listened, listening, or want to listen
 - **Per-track ratings** — rate each song individually with automatic album average
@@ -22,7 +51,7 @@ A personal music journal for Android. Track the albums you've listened to, are c
 - **Search** — find albums on Deezer or search within your local library
 - **Backup & Restore** — export and import your entire collection as a JSON file
 
-##  Tech Stack
+## 🛠️ Tech Stack
 
 | Technology | Purpose |
 |---|---|
@@ -34,22 +63,12 @@ A personal music journal for Android. Track the albums you've listened to, are c
 | Deezer API | Album and artist metadata |
 | EAS Build | Cloud APK compilation |
 
-##  Screenshots
-
-![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_125943.jpg.jpeg)
-![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130008.jpg.jpeg)
-![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130028.jpg.jpeg)
-![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130051.jpg.jpeg)
-![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130111.jpg.jpeg)
-![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130129.jpg.jpeg)
-![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130224.jpg.jpeg)
-
-##  Run locally
+## 🚀 Run locally
 
 ```bash
 # Clone the repo
-git clone https://github.com/TU_USUARIO/waxlog.git
-cd waxlog
+git clone https://github.com/diegoguadron2/Waxlog.git
+cd Waxlog
 
 # Install dependencies
 npm install
@@ -73,4 +92,6 @@ eas build --platform android --profile preview
 
 ---
 
-Built with React Native · Local SQLite database · No backend required
+<div align="center">
+Built with React Native &nbsp;·&nbsp; Local SQLite database &nbsp;·&nbsp; No backend required
+</div>

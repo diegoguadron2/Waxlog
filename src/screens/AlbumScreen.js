@@ -75,6 +75,7 @@ export default function AlbumScreen({ route, navigation }) {
     refreshAlbumInfo,
     updateAlbum,
     setTracks,
+    resolvedArtistId,
   } = useAlbumData(initialAlbum, artistName, artistId);
 
   const [isEditingComment, setIsEditingComment] = useState(false);
@@ -297,8 +298,8 @@ export default function AlbumScreen({ route, navigation }) {
           onSaveAlbum={saveAlbum}
           onShowStateModal={() => setShowStateModal(true)}
           onGoBack={() => navigation.goBack()}
-          onArtistPress={artistId ? () => navigation.navigate('Artist', {
-            artist: { id: artistId, name: artistName }
+          onArtistPress={resolvedArtistId ? () => navigation.navigate('Artist', {
+            artist: { id: resolvedArtistId, name: artistName }
           }) : undefined}
           // 👇 PASAMOS LOS ESTILOS ANIMADOS
           imageAnimatedStyle={imageAnimatedStyle}

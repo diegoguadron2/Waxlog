@@ -781,7 +781,7 @@ export default function ArtistScreen({ route, navigation }) {
                         cover: album.cover_medium || album.cover,
                       },
                       artistName: artist.name,
-                      artistId: artist.id,
+                      artistId: initialArtist.id,
                       refresh: true
                     })}
                   />

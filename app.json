@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "BitacoraMusical",
-    "slug": "BitacoraMusical",
+    "name": "Waxlog",
+    "slug": "Waxlog",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fosalud.BitacoraMusical"
+      "bundleIdentifier": "com.fosalud.Waxlog"
     },
     "android": {
       "permissions": [
@@ -27,7 +27,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.fosalud.BitacoraMusical"
+      "package": "com.fosalud.Waxlog"
     },
     "web": {
       "favicon": "./assets/favicon.png",
