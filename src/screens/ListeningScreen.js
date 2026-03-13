@@ -1,4 +1,3 @@
-// screens/ListeningScreen.js
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
@@ -8,9 +7,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 const TAB_BAR_STYLE = { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.8)', borderTopWidth: 0, elevation: 0, height: 70, paddingBottom: 10, paddingTop: 10 };
-import { useAlbumsByState } from '../hooks/useAlbumsByState'; // 👈 CAMBIAR AQUÍ
+import { useAlbumsByState } from '../hooks/useAlbumsByState'; 
 
-// Componentes (mismos imports)
 import AlbumCard from '../components/library/AlbumCard';
 import AlbumSkeleton from '../components/library/AlbumSkeleton';
 import LibraryHeader from '../components/library/LibraryHeader';
@@ -25,17 +23,16 @@ export default function ListeningScreen({ navigation }) {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const flatListRef = useRef(null);
 
-  // 👇 USAR EL NUEVO HOOK
   const {
-    albums,        // antes era filteredAlbums
+    albums,        
     loading,
     refreshing,
     sortBy,
-    totalCount,    // antes era tabCounts.listening
-    sortOptions,   // antes era getSortOptionsForTab(activeTab)
+    totalCount,    
+    sortOptions,   
     handleSortChange,
     onRefresh,
-  } = useAlbumsByState('listening'); // 👈 PASAR EL ESTADO DIRECTAMENTE
+  } = useAlbumsByState('listening'); 
 
   useFocusEffect(
     useCallback(() => {
@@ -72,7 +69,7 @@ export default function ListeningScreen({ navigation }) {
       <AlbumCard
         album={item}
         viewMode="grid"
-        activeTab="listening" // 👈 PASAR EL ESTADO COMO STRING
+        activeTab="listening" 
         onPress={handleAlbumPress}
         cardWidth={CARD_WIDTH}
       />
@@ -93,7 +90,7 @@ export default function ListeningScreen({ navigation }) {
   const renderHeader = useCallback(() => (
     <>
       <LibraryHeader
-        totalAlbums={totalCount} // 👈 AHORA ES totalCount
+        totalAlbums={totalCount} 
         onAddPress={() => navigation.navigate('SaveAlbum')}
         title="Escuchando"
           accentColor="#60A5FA"
@@ -108,7 +105,7 @@ export default function ListeningScreen({ navigation }) {
     </>
   ), [totalCount, sortOptions, sortBy, showSortMenu, viewMode, navigation]);
 
-  if (loading && albums.length === 0) { // 👈 CAMBIAR filteredAlbums por albums
+  if (loading && albums.length === 0) { 
     return (
       <View style={styles.container}>
         <LibraryHeader
@@ -138,7 +135,7 @@ export default function ListeningScreen({ navigation }) {
 
       <FlatList
         ref={flatListRef}
-        data={albums} // 👈 CAMBIAR filteredAlbums por albums
+        data={albums} 
         renderItem={viewMode === 'grid' ? renderGridItem : renderListItem}
         keyExtractor={(item) => `album-${item.id}-${viewMode}`}
         numColumns={viewMode === 'grid' ? 2 : 1}
@@ -152,7 +149,7 @@ export default function ListeningScreen({ navigation }) {
         ) : null}
         contentContainerStyle={[
           styles.scrollContent,
-          albums.length === 0 && styles.emptyContent, // 👈 CAMBIAR
+          albums.length === 0 && styles.emptyContent, 
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -173,7 +170,6 @@ export default function ListeningScreen({ navigation }) {
   );
 }
 
-// Los estilos se mantienen igual
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -1,4 +1,3 @@
-// components/album/StateSelector/index.js
 import React from 'react';
 import {
     View,
@@ -16,7 +15,6 @@ const { width, height } = Dimensions.get('window');
 
 /**
  * Componente StateSelector
- * Modal para seleccionar estado del álbum y otras opciones
  * 
  * @param {Object} props
  * @param {boolean} props.visible - Visibilidad del modal

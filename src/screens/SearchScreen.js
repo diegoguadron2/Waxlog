@@ -31,18 +31,15 @@ const formatRating = (rating) => {
   return rating.toFixed(1);
 };
 
-// 🔴 COMPONENTE SKELETON PARA SEARCH SCREEN
 const SearchSkeleton = () => {
   return (
     <View style={styles.resultsContainer}>
-      {/* Sección Deezer skeleton */}
       <View style={styles.skeletonSection}>
         <View style={styles.skeletonSectionHeader}>
           <View style={styles.skeletonSectionIcon} />
           <View style={styles.skeletonSectionTitle} />
         </View>
         
-        {/* Álbumes skeleton */}
         <View style={styles.skeletonSubsection}>
           <View style={styles.skeletonSubsectionTitle} />
           {[1, 2, 3].map((i) => (
@@ -56,7 +53,6 @@ const SearchSkeleton = () => {
           ))}
         </View>
 
-        {/* Artistas skeleton */}
         <View style={styles.skeletonSubsection}>
           <View style={styles.skeletonSubsectionTitle} />
           {[1, 2].map((i) => (
@@ -71,14 +67,12 @@ const SearchSkeleton = () => {
         </View>
       </View>
 
-      {/* Sección Biblioteca skeleton */}
       <View style={styles.skeletonSection}>
         <View style={styles.skeletonSectionHeader}>
           <View style={styles.skeletonSectionIcon} />
           <View style={styles.skeletonSectionTitle} />
         </View>
         
-        {/* Álbumes skeleton */}
         <View style={styles.skeletonSubsection}>
           <View style={styles.skeletonSubsectionTitle} />
           {[1, 2, 3].map((i) => (
@@ -93,7 +87,6 @@ const SearchSkeleton = () => {
           ))}
         </View>
 
-        {/* Artistas skeleton */}
         <View style={styles.skeletonSubsection}>
           <View style={styles.skeletonSubsectionTitle} />
           {[1, 2].map((i) => (
@@ -107,7 +100,6 @@ const SearchSkeleton = () => {
           ))}
         </View>
 
-        {/* Géneros skeleton */}
         <View style={styles.skeletonSubsection}>
           <View style={styles.skeletonSubsectionTitle} />
           {[1, 2].map((i) => (
@@ -125,7 +117,6 @@ const SearchSkeleton = () => {
   );
 };
 
-// Wrapper animado para cada resultado — fade + slide + press feedback
 const AnimatedResultCard = ({ index, onPress, children, style }) => {
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(16);
@@ -173,7 +164,6 @@ export default function SearchScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      // restaurar tab bar al entrar
       navigation.getParent()?.setOptions({ tabBarStyle: { display: 'flex' } });
     }, [navigation])
   );
@@ -186,7 +176,6 @@ export default function SearchScreen({ navigation }) {
     };
   }, []);
 
-  // Búsqueda local en la base de datos
   const searchLocal = async (query) => {
     if (!query.trim() || !mountedRef.current) return;
 
@@ -195,7 +184,6 @@ export default function SearchScreen({ navigation }) {
       const db = await getDB();
       const searchTerm = `%${query.toLowerCase().trim()}%`;
 
-      // Buscar artistas locales
       const artists = await db.getAllAsync(`
         SELECT 
           ar.*,
@@ -213,7 +201,6 @@ export default function SearchScreen({ navigation }) {
         LIMIT 5
       `, [searchTerm]);
 
-      // Buscar álbumes locales
       const albums = await db.getAllAsync(`
         SELECT 
           a.*,
@@ -236,7 +223,6 @@ export default function SearchScreen({ navigation }) {
         LIMIT 5
       `, [searchTerm, searchTerm]);
 
-      // Buscar géneros
       const genreResults = await db.getAllAsync(`
         SELECT DISTINCT 
           a.genres,
@@ -290,7 +276,6 @@ export default function SearchScreen({ navigation }) {
     }
   };
 
-  // Búsqueda combinada (Deezer + Local)
   const handleSearch = (text) => {
     setSearchQuery(text);
 
@@ -516,7 +501,6 @@ export default function SearchScreen({ navigation }) {
     </TouchableOpacity>
   );
 
-  // 🔴 NUEVO COMPONENTE PARA CUANDO NO HAY RESULTADOS LOCALES
   const renderEmptyLocalMessage = (type) => {
     let icon, title, message;
     
@@ -550,7 +534,6 @@ export default function SearchScreen({ navigation }) {
   const renderResults = () => {
     const isLoading = loadingDeezer || loadingLocal;
 
-    // Estado vacío — no se ha buscado nada todavía
     if (!searchQuery.trim() && !isLoading) {
       return (
         <View style={styles.emptySearchState}>
@@ -594,12 +577,10 @@ export default function SearchScreen({ navigation }) {
       );
     }
 
-    // Contador global para animar escalonado entre secciones
     let cardIndex = 0;
 
     return (
       <View style={styles.resultsContainer}>
-        {/* SECCIÓN DEEZER — tinte azul para diferenciar */}
         {activeFilter !== 'local' && (hasDeezerAlbums || hasDeezerArtists) && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
@@ -689,7 +670,6 @@ export default function SearchScreen({ navigation }) {
           </View>
         )}
 
-        {/* SECCIÓN BIBLIOTECA — tinte verde para diferenciar */}
         {(hasLocalAlbums || hasLocalArtists || hasLocalGenres) && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
@@ -965,7 +945,6 @@ const styles = StyleSheet.create({
   resultsContainer: {
     paddingHorizontal: 20,
   },
-  // Estado vacío inicial
   emptySearchState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -986,7 +965,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  // Iconos de sección con color
   sectionIconDeezer: {
     width: 28,
     height: 28,
@@ -1005,21 +983,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 8,
   },
-  // Tinte azul para cards de Deezer
   deezerCard: {
     borderColor: 'rgba(96,165,250,0.2)',
   },
   deezerOverlay: {
     backgroundColor: 'rgba(10,20,50,0.45)',
   },
-  // Tinte verde para cards locales
   localCard: {
     borderColor: 'rgba(74,222,128,0.2)',
   },
   localOverlay: {
     backgroundColor: 'rgba(5,30,20,0.45)',
   },
-  // Badges diferenciados
   sourceBadgeDeezer: {
     backgroundColor: 'rgba(30,58,138,0.6)',
   },
@@ -1111,7 +1086,6 @@ const styles = StyleSheet.create({
     borderColor: '#FFD700',
   },
 
-  // ESTILOS PARA ÁLBUMES (compartidos)
   albumCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1182,7 +1156,6 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
 
-  // ESTILOS PARA ARTISTAS
   artistCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1250,7 +1223,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.4)',
   },
 
-  // ESTILOS PARA GÉNEROS
   genreCard: {
     marginBottom: 8,
     borderRadius: 12,
@@ -1303,7 +1275,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // 🔴 NUEVOS ESTILOS PARA MENSAJES DE LOCAL VACÍO
   emptyLocalContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1329,7 +1300,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // 🔴 ESTILOS PARA SKELETONS
   skeletonSection: {
     marginBottom: 30,
   },

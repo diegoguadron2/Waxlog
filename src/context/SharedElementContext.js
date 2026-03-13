@@ -1,4 +1,3 @@
-// context/SharedElementContext.js
 import React, { createContext, useContext, useRef } from 'react';
 import Animated from 'react-native-reanimated';
 

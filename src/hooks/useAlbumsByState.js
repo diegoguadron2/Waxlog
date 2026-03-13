@@ -1,4 +1,3 @@
-// hooks/useAlbumsByState.js
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { executeDBOperation } from '../database/Index';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,7 +13,6 @@ export const useAlbumsByState = (state) => {
   const isLoadingRef = useRef(false);
   const lastFocusTimeRef = useRef(0);
 
-  // Opciones de ordenamiento según el estado
   const sortOptions = [
     { id: 'recent_desc', label: 'Más recientes', icon: 'time' },
     { id: 'recent_asc', label: 'Más antiguos', icon: 'time-outline' },
@@ -22,7 +20,6 @@ export const useAlbumsByState = (state) => {
     { id: 'name_desc', label: 'Nombre Z-A', icon: 'arrow-down' },
   ];
 
-  // Para 'listened' agregamos opciones de calificación
   const allSortOptions = state === 'listened' 
     ? [
         ...sortOptions,
@@ -31,7 +28,6 @@ export const useAlbumsByState = (state) => {
       ]
     : sortOptions;
 
-  // 👈 CORREGIDO: Usamos average_rating
   const getOrderClause = (sortOption) => {
     switch (sortOption) {
       case 'recent_desc':
@@ -51,7 +47,6 @@ export const useAlbumsByState = (state) => {
     }
   };
 
-  // Cargar datos SOLO del estado específico
   const loadData = useCallback(async () => {
     if (isLoadingRef.current || !mountedRef.current) return;
 
@@ -60,7 +55,6 @@ export const useAlbumsByState = (state) => {
 
     try {
       await executeDBOperation(async (db) => {
-        // 1. Obtener el total de álbumes en este estado
         const countResult = await db.getFirstAsync(
           'SELECT COUNT(*) as count FROM albums WHERE state = ?',
           [state]
@@ -70,7 +64,6 @@ export const useAlbumsByState = (state) => {
           setTotalCount(countResult?.count || 0);
         }
 
-        // 2. Obtener los álbumes con sus estadísticas
         const orderClause = getOrderClause(sortBy);
         
         const albumsData = await db.getAllAsync(`
@@ -105,7 +98,6 @@ export const useAlbumsByState = (state) => {
     }
   }, [state, sortBy]);
 
-  // Función de refresh
   const refreshData = useCallback(async () => {
     if (isLoadingRef.current || !mountedRef.current) return;
 
@@ -113,7 +105,6 @@ export const useAlbumsByState = (state) => {
     await loadData();
   }, [loadData]);
 
-  // useFocusEffect - CON THROTTLE
   useFocusEffect(
     useCallback(() => {
       const now = Date.now();
@@ -125,7 +116,6 @@ export const useAlbumsByState = (state) => {
     }, [refreshData, state])
   );
 
-  // Carga inicial
   useEffect(() => {
     loadData();
     return () => {
@@ -133,7 +123,6 @@ export const useAlbumsByState = (state) => {
     };
   }, []);
 
-  // Cambiar ordenamiento
   const handleSortChange = useCallback((optionId) => {
     if (optionId === sortBy) return;
     setSortBy(optionId);
@@ -141,7 +130,6 @@ export const useAlbumsByState = (state) => {
 
   const isMountedSortRef = useRef(false);
 
-  // Efecto para recargar cuando cambia el ordenamiento (no al montar)
   useEffect(() => {
     if (!isMountedSortRef.current) {
       isMountedSortRef.current = true;

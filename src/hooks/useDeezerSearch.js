@@ -8,12 +8,12 @@ export const useDeezerSearch = () => {
     tracks: [],
     albums: [],
     artists: [],
-    genres: [], // ← Agregamos géneros
+    genres: [], 
   });
 
   const search = useCallback(async (query, type = 'all') => {
     if (!query.trim()) {
-      setResults({ tracks: [], albums: [], artists: [], genres: [] }); // ← Actualizado
+      setResults({ tracks: [], albums: [], artists: [], genres: [] }); 
       return;
     }
 
@@ -36,13 +36,13 @@ export const useDeezerSearch = () => {
           data = await searchArtists(query);
           setResults({ tracks: [], albums: [], artists: data, genres: [] });
           break;
-        case 'genres': // ← Nuevo caso para géneros
+        case 'genres': 
           data = await searchGenres(query);
           setResults({ tracks: [], albums: [], artists: [], genres: data });
           break;
         default:
           data = await searchAll(query);
-          setResults(data); // searchAll ya debería incluir géneros
+          setResults(data); 
       }
     } catch (err) {
       setError('Error en la búsqueda. Intenta de nuevo.');

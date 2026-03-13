@@ -1,4 +1,3 @@
-// screens/ToListenScreen.js
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
@@ -36,7 +35,6 @@ const TAB_BAR_STYLE = {
 
 const ACCENT = '#FBBF24';
 
-// Cuánto tiempo lleva un álbum en la lista
 const getTimeAgo = (dateStr) => {
   if (!dateStr) return null;
   const added = new Date(dateStr);
@@ -51,7 +49,6 @@ const getTimeAgo = (dateStr) => {
   return `Hace ${Math.floor(days / 30)} meses`;
 };
 
-// ─── Card álbum del día ───────────────────────────────────────────────────────
 const DailyAlbumCard = ({ album, onPress, onShuffle }) => {
   const timeAgo = getTimeAgo(album.downloaded_at);
 
@@ -63,14 +60,12 @@ const DailyAlbumCard = ({ album, onPress, onShuffle }) => {
           style={card.image}
           imageStyle={{ borderRadius: 16 }}
         >
-          {/* Gradiente oscuro solo abajo */}
           <LinearGradient
             colors={['transparent', 'transparent', 'rgba(0,0,0,0.75)', 'rgba(0,0,0,0.95)']}
             locations={[0, 0.45, 0.75, 1]}
             style={StyleSheet.absoluteFillObject}
           />
 
-          {/* Badge + shuffle en la misma fila arriba */}
           <View style={card.topRow}>
             <View style={card.badge}>
               <Ionicons name="sunny" size={11} color={ACCENT} />
@@ -86,7 +81,6 @@ const DailyAlbumCard = ({ album, onPress, onShuffle }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Info abajo */}
           <View style={card.info}>
             <Text style={card.title} numberOfLines={2}>{album.title}</Text>
             <Text style={card.artist} numberOfLines={1}>{album.artist_name}</Text>
@@ -191,7 +185,6 @@ const card = StyleSheet.create({
   },
 });
 
-// ─── Pantalla principal ───────────────────────────────────────────────────────
 export default function ToListenScreen({ navigation }) {
   const [viewMode, setViewMode] = useState('grid');
   const [showSortMenu, setShowSortMenu] = useState(false);
@@ -209,10 +202,8 @@ export default function ToListenScreen({ navigation }) {
     onRefresh,
   } = useAlbumsByState('to_listen');
 
-  // Álbum del día — determinístico por fecha, cambia con shuffle
   const dailyAlbum = useMemo(() => {
     if (!albums.length) return null;
-    // Base: índice según día del año para que sea consistente
     const dayOfYear = Math.floor(
       (new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24)
     );
@@ -278,7 +269,6 @@ export default function ToListenScreen({ navigation }) {
         accentColor={ACCENT}
       />
 
-      {/* Card álbum del día */}
       {dailyAlbum && (
         <DailyAlbumCard
           album={dailyAlbum}
@@ -305,7 +295,6 @@ export default function ToListenScreen({ navigation }) {
           title="Por escuchar"
           accentColor={ACCENT}
         />
-        {/* Skeleton card */}
         <View style={styles.skeletonCard} />
         <View style={styles.controlsBar}>
           <View style={[styles.controlButton, styles.skeletonControl]} />

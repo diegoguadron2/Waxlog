@@ -1,4 +1,3 @@
-// components/shared/Gradient/index.js
 import React from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -6,11 +5,11 @@ import { LinearGradient } from 'expo-linear-gradient';
  * Componente Gradient reutilizable
  * 
  * @param {Object} props
- * @param {string[]} props.colors - Array de colores para el gradiente
- * @param {Object} props.style - Estilos adicionales
- * @param {Object} props.start - Punto de inicio { x, y }
- * @param {Object} props.end - Punto de fin { x, y }
- * @param {React.ReactNode} props.children - Contenido hijo
+ * @param {string[]} props.colors 
+ * @param {Object} props.style 
+ * @param {Object} props.start 
+ * @param {Object} props.end 
+ * @param {React.ReactNode} props.children
  */
 const Gradient = ({
     colors = ['transparent', 'rgba(0,0,0,0.8)'],

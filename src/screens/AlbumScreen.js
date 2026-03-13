@@ -1,4 +1,3 @@
-// screens/AlbumScreen.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -7,13 +6,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text,
-  Animated, // 👈 IMPORTANTE: Animated de React Native
+  Animated, 
 } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { Image } from 'expo-image';
 import { useAlbumData } from '../hooks/useAlbumData';
 import { Ionicons } from '@expo/vector-icons';
-// Componentes de album
 import AlbumHeader from '../components/album/AlbumHeader';
 import AlbumComment from '../components/album/AlbumComment';
 import TracksList from '../components/album/TracksList';
@@ -89,14 +87,11 @@ export default function AlbumScreen({ route, navigation }) {
   const [imageLoading, setImageLoading] = useState(true);
   const [contentReady, setContentReady] = useState(false);
 
-  // 👇 VALOR ANIMADO PARA EL SCROLL
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // 👇 ESTILOS ANIMADOS PARA LA IMAGEN (PARALLAX)
   const imageAnimatedStyle = {
     transform: [
       {
-        // Escala: 1 + (desplazamiento negativo * factor)
         scale: scrollY.interpolate({
           inputRange: [-200, 0, 200],
           outputRange: [1.5, 1, 0.8],
@@ -104,7 +99,6 @@ export default function AlbumScreen({ route, navigation }) {
         }),
       },
       {
-        // Desplazamiento vertical: la imagen se mueve más lento que el scroll
         translateY: scrollY.interpolate({
           inputRange: [-200, 0, 200],
           outputRange: [50, 0, -50],
@@ -114,7 +108,6 @@ export default function AlbumScreen({ route, navigation }) {
     ],
   };
 
-  // 👇 ESTILOS ANIMADOS PARA EL CONTENIDO (OPCIONAL)
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const contentTranslateY = useRef(new Animated.Value(20)).current;
 
@@ -165,7 +158,6 @@ export default function AlbumScreen({ route, navigation }) {
     };
   }, [navigation]);
 
-  // Efecto para animar el contenido cuando la imagen esté lista
   useEffect(() => {
     if (!imageLoading) {
       const timer = setTimeout(() => {
@@ -273,16 +265,15 @@ export default function AlbumScreen({ route, navigation }) {
         isFavorite={isFavorite}
       />
 
-      {/* 👇 CAMBIAMOS ScrollView por Animated.ScrollView */}
       <Animated.ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true } // 👈 IMPORTANTE: usar native driver
+          { useNativeDriver: true } 
         )}
-        scrollEventThrottle={16} // 👈 16ms = 60fps
+        scrollEventThrottle={16}
       >
         <AlbumHeader
           album={album}
@@ -301,7 +292,6 @@ export default function AlbumScreen({ route, navigation }) {
           onArtistPress={resolvedArtistId ? () => navigation.navigate('Artist', {
             artist: { id: resolvedArtistId, name: artistName }
           }) : undefined}
-          // 👇 PASAMOS LOS ESTILOS ANIMADOS
           imageAnimatedStyle={imageAnimatedStyle}
         />
 

@@ -1,4 +1,3 @@
-// components/album/TracksList/TrackItem.js
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +23,6 @@ const TrackItem = ({
   const ratingColor = hasRating ? getRatingColor(track.rating) : null;
   const formattedRating = hasRating ? formatRating(track.rating) : null;
 
-  // Color del borde: rating color si tiene nota, dominantColor sutil si no
   const borderColor = hasRating
     ? ratingColor
     : (dominantColor ? dominantColor + '50' : 'rgba(255,255,255,0.1)');
@@ -133,11 +131,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginLeft: 8,
-    marginRight: 8, // 👈 Añadido margen derecho
+    marginRight: 8, 
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 1,
-    lineHeight: 22, // 👈 Mejor espaciado para 2 líneas
+    lineHeight: 22, 
   },
   ratingText: {
     fontSize: 16,

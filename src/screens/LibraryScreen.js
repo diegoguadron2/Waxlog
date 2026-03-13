@@ -1,4 +1,3 @@
-// screens/LibraryScreen.js
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
@@ -18,10 +17,8 @@ import ControlsBar from '../components/library/ControlsBar';
 import SortMenu from '../components/library/SortMenu';
 import EmptyLibraryState from '../components/library/EmptyLibraryState';
 import SharedElement from '../components/shared/SharedElement';
-// Hooks
 import { useLibraryData } from '../hooks/useLibraryData';
 
-// Constantes
 import { PADDING_HORIZONTAL, GAP, CARD_WIDTH } from '../constants/layout';
 
 export default function LibraryScreen({ navigation }) {
@@ -132,7 +129,6 @@ export default function LibraryScreen({ navigation }) {
     </>
   ), [tabCounts, activeTab, sortOptions, sortBy, showSortMenu, viewMode, navigation, handleLocalTabChange]);
 
-  // Log para debugging
   useEffect(() => {
     console.log(`📊 Pestaña activa: ${activeTab} - Álbumes mostrados: ${filteredAlbums.length}`);
   }, [activeTab, filteredAlbums]);

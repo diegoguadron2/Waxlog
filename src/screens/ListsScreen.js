@@ -1,4 +1,3 @@
-// screens/ListsScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -29,10 +28,8 @@ const TAB_BAR_STYLE = {
 
 const { width } = Dimensions.get('window');
 
-// Componente Skeleton para listas
 const ListsSkeleton = () => (
   <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-    {/* Random album skeleton */}
     <View style={styles.skeletonSection}>
       <View style={styles.skeletonSectionHeader}>
         <View style={styles.skeletonSectionIcon} />
@@ -42,7 +39,6 @@ const ListsSkeleton = () => (
       <View style={styles.skeletonRandomAlbumButton} />
     </View>
 
-    {/* Recent albums skeleton */}
     <View style={styles.skeletonSection}>
       <View style={styles.skeletonSectionHeader}>
         <View style={styles.skeletonSectionIcon} />
@@ -55,7 +51,6 @@ const ListsSkeleton = () => (
       </ScrollView>
     </View>
 
-    {/* Decades skeleton */}
     {['2020s', '2010s', '2000s', '90s', '80s'].map((decade) => (
       <View key={decade} style={styles.skeletonSection}>
         <View style={styles.skeletonSectionHeader}>
@@ -70,7 +65,6 @@ const ListsSkeleton = () => (
       </View>
     ))}
 
-    {/* Anniversaries skeleton */}
     <View style={styles.skeletonSection}>
       <View style={styles.skeletonSectionHeader}>
         <View style={styles.skeletonSectionIcon} />
@@ -85,13 +79,11 @@ const ListsSkeleton = () => (
   </ScrollView>
 );
 
-// Componente Skeleton para estadísticas
 const StatsSkeleton = () => (
   <ScrollView
     showsVerticalScrollIndicator={false}
     contentContainerStyle={[styles.tabContent, styles.statsTabContent]}
   >
-    {/* Stats grid skeleton - primera fila */}
     <View style={styles.statsGrid}>
       {[1, 2, 3].map((i) => (
         <View key={`stat1-${i}`} style={styles.skeletonStatCard}>
@@ -102,7 +94,6 @@ const StatsSkeleton = () => (
       ))}
     </View>
 
-    {/* Stats grid skeleton - segunda fila */}
     <View style={styles.statsGrid}>
       {[1, 2, 3].map((i) => (
         <View key={`stat2-${i}`} style={styles.skeletonStatCard}>
@@ -113,7 +104,6 @@ const StatsSkeleton = () => (
       ))}
     </View>
 
-    {/* Chart skeleton */}
     <View style={styles.skeletonChartContainer}>
       <View style={styles.skeletonChartTitle} />
       <View style={styles.barChart}>
@@ -127,7 +117,6 @@ const StatsSkeleton = () => (
       </View>
     </View>
 
-    {/* Completion detail skeleton */}
     <View style={styles.skeletonCompletionDetail}>
       <View style={styles.completionHeader}>
         <View style={styles.skeletonCompletionTitle} />
@@ -189,7 +178,6 @@ export default function ListsScreen({ navigation }) {
     }, [navigation])
   );
 
-  // Cargar todos los datos al montar
   useEffect(() => {
     loadAllData();
   }, []);
@@ -251,7 +239,6 @@ export default function ListsScreen({ navigation }) {
   const loadLists = async () => {
     try {
       const result = await executeDBOperation(async (db) => {
-        // Álbumes recientes (últimos 10 agregados)
         const recent = await db.getAllAsync(`
           SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
           FROM albums a
@@ -261,7 +248,6 @@ export default function ListsScreen({ navigation }) {
           LIMIT 10
         `);
 
-        // Por década
         const byDecade = {
           '80s': [],
           '90s': [],
@@ -288,12 +274,10 @@ export default function ListsScreen({ navigation }) {
           else if (year >= 1980) byDecade['80s'].push(album);
         });
 
-        // Limitar a 5 por década
         Object.keys(byDecade).forEach(key => {
           byDecade[key] = byDecade[key].slice(0, 5);
         });
 
-        // Aniversarios (álbumes que cumplen años este mes)
         const currentDate = new Date();
         const currentMonth = currentDate.getMonth() + 1;
 
@@ -309,7 +293,6 @@ export default function ListsScreen({ navigation }) {
           LIMIT 10
         `, [currentMonth.toString().padStart(2, '0')]);
 
-        // Olvidados (álbumes en 'to_listen' con más de 30 días)
         const forgotten = await db.getAllAsync(`
           SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
           FROM albums a
@@ -321,7 +304,6 @@ export default function ListsScreen({ navigation }) {
           LIMIT 10
         `);
 
-        // Mejor calificados
         const topRated = await db.getAllAsync(`
           SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
                  AVG(t.rating) as avg_rating
@@ -335,7 +317,6 @@ export default function ListsScreen({ navigation }) {
           LIMIT 10
         `);
 
-        // Pendientes
         const pending = await db.getAllAsync(`
           SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id
           FROM albums a
@@ -345,7 +326,6 @@ export default function ListsScreen({ navigation }) {
           LIMIT 10
         `);
 
-        // Completos
         const completed = await db.getAllAsync(`
           SELECT a.*, ar.name as artist_name, ar.deezer_id as artist_deezer_id,
                  COUNT(t.id) as total_tracks,
@@ -381,7 +361,6 @@ export default function ListsScreen({ navigation }) {
   const loadStats = async () => {
     try {
       const result = await executeDBOperation(async (db) => {
-        // Estadísticas generales
         const generalStats = await db.getFirstAsync(`
           SELECT 
             (SELECT COUNT(*) FROM artists) as totalArtists,
@@ -396,7 +375,6 @@ export default function ListsScreen({ navigation }) {
              WHERE t.rating IS NOT NULL) as avgRating
         `);
 
-        // Distribución por álbumes
         const albumRatings = await db.getAllAsync(`
           SELECT 
             a.id,
@@ -419,7 +397,6 @@ export default function ListsScreen({ navigation }) {
           }
         });
 
-        // Tasa de completitud
         const completionStats = await db.getFirstAsync(`
           SELECT 
             COUNT(*) as totalAlbums,
@@ -458,12 +435,10 @@ export default function ListsScreen({ navigation }) {
     }
   };
 
-  // Cargar todos los datos
   const loadAllData = async () => {
     try {
       setLoading(true);
       
-      // Cargar en paralelo
       await Promise.all([
         loadRandomAlbum(),
         loadLists(),
@@ -551,7 +526,6 @@ export default function ListsScreen({ navigation }) {
 
   const renderListsTab = () => (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
-      {/* Widget de álbum aleatorio */}
       {randomAlbum && (
         <View style={styles.randomAlbumSection}>
           <View style={styles.sectionHeader}>
@@ -618,7 +592,6 @@ export default function ListsScreen({ navigation }) {
         </View>
       )}
 
-      {/* Recientes */}
       {lists.recentAlbums.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -631,14 +604,12 @@ export default function ListsScreen({ navigation }) {
         </View>
       )}
 
-      {/* Por década */}
       {renderDecadeSection('2020s', lists.byDecade['2020s'])}
       {renderDecadeSection('2010s', lists.byDecade['2010s'])}
       {renderDecadeSection('2000s', lists.byDecade['2000s'])}
       {renderDecadeSection('90s', lists.byDecade['90s'])}
       {renderDecadeSection('80s', lists.byDecade['80s'])}
 
-      {/* Aniversarios */}
       {lists.anniversaries.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -651,7 +622,6 @@ export default function ListsScreen({ navigation }) {
         </View>
       )}
 
-      {/* Olvidados */}
       {lists.forgotten.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -664,7 +634,6 @@ export default function ListsScreen({ navigation }) {
         </View>
       )}
 
-      {/* Mejor calificados */}
       {lists.topRated.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -677,7 +646,6 @@ export default function ListsScreen({ navigation }) {
         </View>
       )}
 
-      {/* Pendientes */}
       {lists.pending.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -690,7 +658,6 @@ export default function ListsScreen({ navigation }) {
         </View>
       )}
 
-      {/* Completos */}
       {lists.completed.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -726,7 +693,6 @@ export default function ListsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.tabContent, styles.statsTabContent]}
       >
-        {/* Tarjetas de estadísticas — grid 2 columnas */}
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Ionicons name="people" size={22} color="#60A5FA" />
@@ -760,7 +726,6 @@ export default function ListsScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Gráfico de distribución de calificaciones */}
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Distribución de calificaciones</Text>
           <View style={styles.barChart}>
@@ -780,7 +745,6 @@ export default function ListsScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Barra de progreso detallada para completitud */}
         <View style={styles.completionDetail}>
           <View style={styles.completionHeader}>
             <Text style={styles.completionTitle}>Álbumes completos</Text>
@@ -794,7 +758,6 @@ export default function ListsScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Espacio extra al final */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
     );
@@ -803,17 +766,14 @@ export default function ListsScreen({ navigation }) {
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: '#000000' }]}>
-        {/* Overlay muy sutil para dar profundidad */}
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.2)' }]} />
 
-        {/* Gradiente superior */}
         <LinearGradient
           colors={['rgba(0,0,0,0.3)', 'transparent']}
           style={styles.topGradient}
           pointerEvents="none"
         />
 
-        {/* Header */}
         <LinearGradient
           colors={['rgba(255,255,255,0.05)', 'transparent']}
           style={styles.header}
@@ -822,14 +782,12 @@ export default function ListsScreen({ navigation }) {
           <Text style={styles.subtitle}>Descubre tu colección</Text>
         </LinearGradient>
 
-        {/* Tabs skeleton */}
         <View style={styles.tabContainer}>
           {tabs.map((tab) => (
             <View key={tab.id} style={[styles.tab, styles.skeletonTab]} />
           ))}
         </View>
 
-        {/* Contenido según pestaña - skeleton */}
         <View style={styles.content}>
           {activeTab === 'lists' && <ListsSkeleton />}
           {activeTab === 'stats' && <StatsSkeleton />}
@@ -840,10 +798,8 @@ export default function ListsScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor }]}>
-      {/* Overlay muy sutil para dar profundidad */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.2)' }]} />
 
-      {/* Gradiente superior */}
       <LinearGradient
         colors={['rgba(0,0,0,0.3)', 'transparent']}
         style={styles.topGradient}
@@ -887,7 +843,6 @@ export default function ListsScreen({ navigation }) {
         ))}
       </View>
 
-      {/* Contenido según pestaña */}
       <View style={styles.content}>
         {activeTab === 'lists' && renderListsTab()}
         {activeTab === 'stats' && renderStatsTab()}
@@ -1233,7 +1188,6 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 40,
   },
-  // Estilos para skeletons
   skeletonTab: {
     height: 44,
     backgroundColor: 'rgba(255,255,255,0.03)',

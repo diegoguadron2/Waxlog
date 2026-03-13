@@ -1,8 +1,6 @@
-// shared/RatingBadge/index.js
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-// Colores para calificaciones (enteras)
 export const getRatingColor = (rating) => {
   if (!rating) return '#9CA3AF';
   const colors = [
@@ -13,7 +11,6 @@ export const getRatingColor = (rating) => {
   return colors[index];
 };
 
-// Colores para decimales (más suaves)
 export const getDecimalColor = (rating) => {
   if (!rating) return '#9CA3AF';
   const colors = [
@@ -24,7 +21,6 @@ export const getDecimalColor = (rating) => {
   return colors[index];
 };
 
-// Formatear calificación
 export const formatRating = (rating) => {
   if (!rating) return '0.0';
   if (rating === 10) return '10';
@@ -33,14 +29,13 @@ export const formatRating = (rating) => {
 
 /**
  * Componente RatingBadge
- * Muestra la calificación en un badge circular con estilo elegante
  * 
  * @param {Object} props
- * @param {number} props.rating - Calificación (1-10)
- * @param {string} props.size - Tamaño: 'small', 'medium', 'large'
- * @param {boolean} props.showBackground - Mostrar fondo
- * @param {Object} props.style - Estilos adicionales
- * @param {Object} props.textStyle - Estilos adicionales para el texto
+ * @param {number} props.rating 
+ * @param {string} props.size 
+ * @param {boolean} props.showBackground 
+ * @param {Object} props.style 
+ * @param {Object} props.textStyle 
  */
 const RatingBadge = ({ 
   rating, 
@@ -52,10 +47,8 @@ const RatingBadge = ({
   const color = getRatingColor(rating);
   const formattedRating = formatRating(rating);
   
-  // Separar parte entera y decimal
   const [integer, decimal] = formattedRating.split('.');
   
-  // Definir tamaños según prop size
   const getSize = () => {
     switch(size) {
       case 'small':
@@ -70,7 +63,7 @@ const RatingBadge = ({
           integerSize: 28,
           decimalSize: 16,
         };
-      default: // medium
+      default: 
         return {
           container: 50,
           integerSize: 20,

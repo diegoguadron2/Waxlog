@@ -1,4 +1,3 @@
-// components/album/AlbumHeader/index.js
 import React from 'react';
 import {
     View,
@@ -6,12 +5,11 @@ import {
     TouchableOpacity,
     StyleSheet,
     Dimensions,
-    Animated, // 👈 IMPORTAR Animated
+    Animated, 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
-// Componentes shared
 import Gradient from '../../shared/Gradient';
 import PressAnimation from '../../shared/PressAnimation';
 import RatingBadge, { getRatingColor, formatRating } from '../../shared/RatingBadge';
@@ -21,7 +19,6 @@ import SharedElement from '../../shared/SharedElement';
 
 const { width, height } = Dimensions.get('window');
 
-// Función auxiliar para formatear tipo de álbum
 const formatAlbumType = (type) => {
     if (!type) return 'Álbum';
     const types = {
@@ -52,7 +49,6 @@ const AlbumHeader = ({
     onShowStateModal,
     onGoBack,
     onArtistPress,
-    // 👇 NUEVA PROP: estilos animados para la imagen (parallax)
     imageAnimatedStyle,
 }) => {
     const navigation = useNavigation();
@@ -67,7 +63,6 @@ const AlbumHeader = ({
 
     return (
         <>
-            {/* Botón de retroceso */}
             <TouchableOpacity
                 style={styles.backButton}
                 onPress={handleGoBack}
@@ -75,7 +70,6 @@ const AlbumHeader = ({
                 <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
 
-            {/* Botón de acción (descargar o menú) */}
             <View style={styles.actionButton}>
                 {isSaved ? (
                     <PressAnimation onPress={onShowStateModal}>
@@ -92,9 +86,7 @@ const AlbumHeader = ({
                 )}
             </View>
 
-            {/* Contenedor de imagen con parallax */}
             <View style={styles.imageContainer}>
-                {/* 👇 APLICAR LOS ESTILOS ANIMADOS A LA IMAGEN */}
                 <Animated.View style={[StyleSheet.absoluteFill, imageAnimatedStyle]}>
                     <SharedElement id={`album-${album.id}`}>
                         <ImageWithFallback
@@ -107,14 +99,12 @@ const AlbumHeader = ({
                     </SharedElement>
                 </Animated.View>
 
-                {/* Gradiente (se mantiene fijo sobre la imagen) */}
                 <Gradient
                     colors={['transparent', dominantColor + 'FF']}
                     style={styles.gradient}
                 />
             </View>
 
-            {/* Información del álbum (se mantiene fija) */}
             <View style={styles.infoContainer}>
                 <View style={styles.titleRow}>
                     <View style={styles.titleContainer}>
@@ -210,7 +200,7 @@ const styles = StyleSheet.create({
         width: width,
         height: height * 0.5,
         position: 'relative',
-        overflow: 'hidden', // 👈 IMPORTANTE: ocultar lo que se salga
+        overflow: 'hidden', 
     },
     image: {
         width: '100%',
@@ -222,12 +212,12 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: height * 0.2,
-        zIndex: 10, // 👈 Asegurar que el gradiente esté sobre la imagen
+        zIndex: 10, 
     },
     infoContainer: {
         paddingHorizontal: 20,
         marginTop: -50,
-        zIndex: 15, // 👈 Asegurar que la info esté sobre la imagen
+        zIndex: 15, 
     },
     titleRow: {
         flexDirection: 'row',

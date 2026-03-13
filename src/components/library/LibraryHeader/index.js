@@ -1,4 +1,3 @@
-// components/library/LibraryHeader/index.js
 import React, { useState, useRef } from 'react';
 import {
   View,

@@ -1,4 +1,3 @@
-// screens/GenreScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -23,14 +22,12 @@ const PADDING_HORIZONTAL = 16;
 const GAP = 12;
 const CARD_WIDTH = (width - (PADDING_HORIZONTAL * 2) - GAP) / COLUMN_COUNT;
 
-// Estados posibles de álbum
 const ALBUM_STATES = {
   listened: { label: 'Escuchado', icon: 'checkmark-circle', color: '#4ADE80' },
   listening: { label: 'Escuchando', icon: 'headset', color: '#60A5FA' },
   toListen: { label: 'Por escuchar', icon: 'time', color: '#FBBF24' },
 };
 
-// ─── Skeleton ────────────────────────────────────────────────────────────────
 const GenreSkeleton = () => (
   <View style={styles.container}>
     <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#1a1a1a' }]} />
@@ -71,7 +68,6 @@ const GenreSkeleton = () => (
   </View>
 );
 
-// ─── Modal de Filtros ─────────────────────────────────────────────────────────
 const FilterModal = ({ visible, onClose, filters, onApply, albums }) => {
   const [localFilters, setLocalFilters] = useState(filters);
 
@@ -232,7 +228,6 @@ const FilterModal = ({ visible, onClose, filters, onApply, albums }) => {
   );
 };
 
-// ─── Pantalla principal ───────────────────────────────────────────────────────
 export default function GenreScreen({ route, navigation }) {
   const { genre, color: genreColor } = route.params;
 
@@ -240,7 +235,7 @@ export default function GenreScreen({ route, navigation }) {
   const [backgroundImage, setBackgroundImage] = useState(null);
   const [accentColor, setAccentColor] = useState('white');
   const [activeTab, setActiveTab] = useState('all');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+  const [viewMode, setViewMode] = useState('grid'); 
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [albums, setAlbums] = useState([]);
   const [filteredAlbums, setFilteredAlbums] = useState([]);
@@ -252,7 +247,6 @@ export default function GenreScreen({ route, navigation }) {
     setViewMode(mode);
   };
 
-  // Ocultar tab bar
   useEffect(() => {
     navigation.getParent()?.setOptions({ tabBarStyle: { display: 'none' } });
     return () => {
@@ -270,7 +264,6 @@ export default function GenreScreen({ route, navigation }) {
     };
   }, [navigation]);
 
-  // Cargar álbumes
   useEffect(() => {
     let isMounted = true;
     const loadGenreAlbums = async () => {
@@ -330,20 +323,17 @@ export default function GenreScreen({ route, navigation }) {
     return () => { isMounted = false; };
   }, [genre]);
 
-  // Aplicar tab + filtros
   useEffect(() => {
     if (!albums.length) return;
 
     let result = [...albums];
 
-    // Tab
     if (activeTab === 'top') {
       result = result.filter(a => a.average_rating > 0).sort((a, b) => b.average_rating - a.average_rating);
     } else if (activeTab === 'recent') {
       result = result.sort((a, b) => new Date(b.downloaded_at || 0) - new Date(a.downloaded_at || 0));
     }
 
-    // Filtros
     if (filters.states?.length > 0) {
       result = result.filter(a => filters.states.includes(a.state));
     }
@@ -385,7 +375,6 @@ export default function GenreScreen({ route, navigation }) {
     filters.year !== null,
   ].filter(Boolean).length;
 
-  // ── Card grid ──
   const renderGridCard = useCallback((album) => {
     const ratingColor = album.average_rating ? getRatingColor(album.average_rating) : null;
     const ratingValue = album.average_rating ? album.average_rating.toFixed(1) : null;
@@ -442,7 +431,6 @@ export default function GenreScreen({ route, navigation }) {
     );
   }, [handleAlbumPress]);
 
-  // ── Row lista ──
   const renderListRow = useCallback((album) => {
     const ratingColor = album.average_rating ? getRatingColor(album.average_rating) : null;
     const ratingValue = album.average_rating ? album.average_rating.toFixed(1) : null;
@@ -455,7 +443,6 @@ export default function GenreScreen({ route, navigation }) {
         onPress={() => handleAlbumPress(album)}
         activeOpacity={0.75}
       >
-        {/* Portada pequeña */}
         <View style={styles.listImageContainer}>
           <Image
             source={{ uri: album.cover }}
@@ -471,7 +458,6 @@ export default function GenreScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* Info */}
         <View style={styles.listInfo}>
           <Text style={styles.listTitle} numberOfLines={1}>{album.title}</Text>
           <Text style={styles.listArtist} numberOfLines={1}>{album.artist_name}</Text>
@@ -496,7 +482,6 @@ export default function GenreScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Rating */}
         {ratingValue ? (
           <View style={[styles.listRatingBadge, { backgroundColor: ratingColor + '20', borderColor: ratingColor + '60' }]}>
             <Text style={[styles.listRatingText, { color: ratingColor }]}>{ratingValue}</Text>
@@ -520,7 +505,6 @@ export default function GenreScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Fondo blur */}
       {backgroundImage ? (
         <ImageBackground source={{ uri: backgroundImage }} style={StyleSheet.absoluteFillObject} blurRadius={80} />
       ) : (
@@ -541,19 +525,16 @@ export default function GenreScreen({ route, navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Gradiente superior */}
         <LinearGradient
           colors={['rgba(0,0,0,0.8)', 'transparent']}
           style={styles.topGradient}
           pointerEvents="none"
         />
 
-        {/* Botón retroceso */}
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
 
-        {/* Título + stats */}
         <View style={styles.header}>
           <Text style={[styles.genreTitle, { color: accentColor }]}>{genre}</Text>
 
@@ -581,9 +562,7 @@ export default function GenreScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Tabs + controles */}
         <View style={styles.tabsRow}>
-          {/* Tabs en scroll horizontal */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -608,7 +587,6 @@ export default function GenreScreen({ route, navigation }) {
             ))}
           </ScrollView>
 
-          {/* Botones filtro + vista — separados visualmente */}
           <View style={styles.rightControls}>
             <TouchableOpacity
               style={[styles.iconBtn, activeFilterCount > 0 && styles.iconBtnActive]}
@@ -635,7 +613,6 @@ export default function GenreScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Chips de filtros activos */}
         {activeFilterCount > 0 && (
           <ScrollView
             horizontal
@@ -689,7 +666,6 @@ export default function GenreScreen({ route, navigation }) {
           </ScrollView>
         )}
 
-        {/* Contenido animado */}
         {filteredAlbums.length > 0 ? (
           <View style={styles.gridContainer}>
             {viewMode === 'grid' ? (
@@ -732,7 +708,6 @@ export default function GenreScreen({ route, navigation }) {
   );
 }
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
@@ -750,7 +725,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
 
-  // Header
   header: { marginTop: 120, marginBottom: 20, paddingHorizontal: PADDING_HORIZONTAL, zIndex: 15 },
   genreTitle: {
     fontSize: 42, fontWeight: 'bold', marginBottom: 16,
@@ -770,7 +744,6 @@ const styles = StyleSheet.create({
   },
   statLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2, fontWeight: '500' },
 
-  // Controles (tabs + iconos)
   tabsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -808,7 +781,6 @@ const styles = StyleSheet.create({
   },
   filterBadgeText: { color: 'white', fontSize: 9, fontWeight: 'bold' },
 
-  // Chips de filtros activos
   activeFiltersScroll: { marginBottom: 10 },
   activeFiltersContent: { paddingHorizontal: PADDING_HORIZONTAL, gap: 8 },
   activeFilterChip: {
@@ -820,7 +792,6 @@ const styles = StyleSheet.create({
   },
   activeFilterChipText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' },
 
-  // Grid cards
   gridContainer: { paddingHorizontal: PADDING_HORIZONTAL },
   albumGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   albumCard: { borderRadius: 16, overflow: 'hidden', marginBottom: GAP },
@@ -852,7 +823,6 @@ const styles = StyleSheet.create({
   albumTracks: { color: 'rgba(255,255,255,0.55)', fontSize: 10 },
   metaDot: { color: 'rgba(255,255,255,0.3)', marginHorizontal: 3, fontSize: 10 },
 
-  // Lista
   listContainer: { gap: 1 },
   listRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -877,7 +847,6 @@ const styles = StyleSheet.create({
   },
   listRatingText: { fontSize: 13, fontWeight: 'bold' },
 
-  // Empty
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 32 },
   emptyIcon: {
     width: 96, height: 96, borderRadius: 48,
@@ -896,7 +865,6 @@ const styles = StyleSheet.create({
   },
   clearFiltersBtnText: { color: 'white', fontSize: 14, fontWeight: '600' },
 
-  // Modal de filtros
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
   filterPanel: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -934,7 +902,6 @@ const styles = StyleSheet.create({
   },
   applyButtonText: { color: '#000', fontSize: 16, fontWeight: '700' },
 
-  // Skeleton
   skeletonHeader: { marginTop: 120, marginBottom: 20, paddingHorizontal: PADDING_HORIZONTAL },
   skeletonBackButton: {
     position: 'absolute', top: -60, left: 20,

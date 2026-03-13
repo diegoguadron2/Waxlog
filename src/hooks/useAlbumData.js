@@ -1,4 +1,3 @@
-// hooks/useAlbumData.js
 import { useState, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system';
@@ -23,7 +22,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
     const mountedRef = useRef(true);
     const operationInProgressRef = useRef(false);
 
-    // Función auxiliar para esperar y asegurar que la BD se libere
     const waitForDB = async (ms = 300) => {
         await new Promise(resolve => setTimeout(resolve, ms));
     };
@@ -63,7 +61,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                 setIsFavorite(localAlbum.is_favorite === 1);
                 setAlbumDetails(localAlbum);
 
-                // Resolver deezer_id del artista desde la BD si no vino en params
                 if (!artistId && localAlbum.artist_id) {
                     const artistRow = await db.getFirstAsync(
                         'SELECT deezer_id FROM artists WHERE id = ?',
@@ -234,7 +231,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         }
     }, [album.id, artistId, checkIfSaved]);
 
-    // Actualizar estado del álbum
     const updateAlbumState = useCallback(async (state) => {
         if (!localAlbumId || operationInProgressRef.current) return;
 
@@ -307,7 +303,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                 await FileSystem.deleteAsync(album.cover_local).catch(() => { });
             }
 
-            // Usar la función de ayuda que ya tiene transacciones
             await dbHelpers.deleteAlbumAndCleanup(localAlbumId);
 
             await waitForDB(500);
@@ -369,13 +364,11 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                 );
             });
 
-            // Actualizar tracks localmente
             const updatedTracks = tracks.map(t =>
                 t.id === trackId ? { ...t, rating, comment } : t
             );
             setTracks(updatedTracks);
 
-            // Recalcular promedio
             const ratedTracks = updatedTracks.filter(t => t.rating);
             if (ratedTracks.length > 0) {
                 const avg = ratedTracks.reduce((sum, t) => sum + t.rating, 0) / ratedTracks.length;
@@ -394,7 +387,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         }
     }, [localAlbumId, tracks]);
 
-    // Actualizar información desde Deezer
     const refreshAlbumInfo = useCallback(async () => {
         if (!isSaved || !localAlbumId || operationInProgressRef.current) return;
 
@@ -468,13 +460,11 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         }
     }, [isSaved, localAlbumId, album?.id, initialAlbum?.id, checkIfSaved]);
 
-    // Setter para actualizar el álbum (para cuando cambia la imagen)
     const updateAlbum = useCallback((newAlbum) => {
         setAlbum(newAlbum);
     }, []);
 
     return {
-        // Datos
         album,
         albumDetails,
         tracks,
@@ -490,7 +480,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         setDominantColor,
         resolvedArtistId,
 
-        // Acciones
         loadAlbumData,
         saveAlbum,
         updateAlbumState,
@@ -501,7 +490,6 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         refreshAlbumInfo,
         updateAlbum,
 
-        // Utilidades para tracks
         setTracks,
     };
 };

@@ -1,4 +1,3 @@
-// components/shared/SharedElement.js
 import React, { forwardRef, useEffect } from 'react';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 import { useSharedElement } from '../../context/SharedElementContext';
@@ -17,7 +16,7 @@ const SharedElement = forwardRef(({ id, children, style, ...props }, ref) => {
   return (
     <Animated.View
       ref={ref}
-      style={style} // 👈 Solo aplica los estilos que vienen de fuera, sin zIndex fijo
+      style={style} 
       sharedTransitionTag={id}
       {...props}
     >

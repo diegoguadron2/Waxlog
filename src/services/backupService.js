@@ -52,7 +52,7 @@ export const backupService = {
     }
   },
 
-  // Restaurar backup (VERSIÓN CORREGIDA)
+  // Restaurar backup
   restoreBackup: async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -80,18 +80,14 @@ export const backupService = {
             style: 'destructive',
             onPress: async () => {
               try {
-                // 1. Cerrar conexión actual
                 await resetDB();
                 console.log('🔄 Conexión a BD cerrada');
 
-                // 2. Pequeña pausa para asegurar que el archivo se libere
                 await new Promise(resolve => setTimeout(resolve, 500));
 
-                // 3. Definir rutas
                 const backupFile = new File(selectedFile.uri);
                 const destinationFile = new File(Paths.document, 'SQLite', 'bitacora.db');
 
-                // 4. Backup automático de seguridad
                 const autoBackupDir = new Directory(Paths.cache, 'auto_backups');
                 if (!autoBackupDir.exists) {
                   await autoBackupDir.create();
@@ -103,27 +99,20 @@ export const backupService = {
                   console.log('✅ Backup automático creado en:', autoBackupFile.uri);
                 }
 
-                // 5. Asegurar que el directorio de destino exista
                 const destDir = new Directory(Paths.document, 'SQLite');
                 if (!destDir.exists) {
                   await destDir.create();
                 }
 
-                // 6. Eliminar la BD actual si existe
                 if (destinationFile.exists) {
                   await destinationFile.delete();
-                  // Pequeña pausa después de eliminar
                   await new Promise(resolve => setTimeout(resolve, 500));
                 }
 
-                // 7. Copiar el backup
                 await backupFile.copy(destinationFile);
                 console.log('✅ Backup restaurado en:', destinationFile.uri);
 
-                // 8. 🔴 FORZAR PERMISOS DE ESCRITURA
-                // En Android, a veces necesitamos tocar el archivo para que tome permisos
-                // No hay un método directo para cambiar permisos, pero podemos intentar
-                // abrir y cerrar una conexión temporal
+
                 try {
                   const tempDB = await SQLite.openDatabaseAsync(destinationFile.uri);
                   await tempDB.closeAsync();
@@ -132,7 +121,6 @@ export const backupService = {
                   console.log('⚠️ No se pudieron verificar permisos:', e);
                 }
 
-                // 9. Mensaje claro al usuario
                 Alert.alert(
                   '✅ Restauración completada',
                   'Los datos han sido restaurados. La aplicación se reiniciará para aplicar los cambios.',
@@ -140,15 +128,12 @@ export const backupService = {
                     {
                       text: 'Reiniciar ahora',
                       onPress: () => {
-                        // Forzar recarga de la app (en desarrollo podemos usar esto)
                         if (__DEV__) {
-                          // En desarrollo, sugerimos recargar
                           Alert.alert(
                             'Recarga manual',
                             'En desarrollo, recarga la app con R o cierra y vuelve a abrir.'
                           );
                         } else {
-                          // En producción, el usuario debe cerrar la app
                           Alert.alert(
                             'Cierra la app',
                             'Para aplicar los cambios, cierra y vuelve a abrir la aplicación manualmente.'

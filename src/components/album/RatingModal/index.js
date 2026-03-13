@@ -1,4 +1,3 @@
-// components/album/RatingModal/index.js
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -32,19 +31,15 @@ const AnimatedNumberButton = ({ number, selected, onPress, color }) => {
     const opacity = useSharedValue(1);
 
     const handlePress = () => {
-        // Animación de "pop"
         scale.value = withSequence(
             withSpring(1.2, { damping: 8, stiffness: 150 }),
             withSpring(1, { damping: 8, stiffness: 150 })
         );
-        
-        // Pequeño fade para feedback visual
         opacity.value = withSequence(
             withTiming(0.7, { duration: 50 }),
             withTiming(1, { duration: 100 })
         );
 
-        // Llamar a la función original
         onPress();
     };
 
@@ -84,7 +79,6 @@ const AnimatedPreview = ({ value, color }) => {
     const scale = useSharedValue(1);
 
     useEffect(() => {
-        // Animar cuando cambia el valor
         scale.value = withSequence(
             withSpring(1.2, { damping: 10 }),
             withSpring(1, { damping: 10 })
@@ -110,15 +104,13 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
     const [decimal, setDecimal] = useState('0');
     const [comment, setComment] = useState('');
 
-    // Animaciones del modal - ULTRA RÁPIDAS
     const modalScale = useSharedValue(0);
     const modalOpacity = useSharedValue(0);
 
     useEffect(() => {
         if (visible) {
-            // Entrada instantánea - 50ms es casi imperceptible
             modalScale.value = withTiming(1, {
-                duration: 50, // 50 milisegundos
+                duration: 50, 
                 easing: Easing.linear
             });
             modalOpacity.value = withTiming(1, {
@@ -126,7 +118,6 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
                 easing: Easing.linear
             });
 
-            // Configurar valores iniciales
             if (currentRating) {
                 setSelectedRating(Math.floor(currentRating));
                 setDecimal(Math.round((currentRating - Math.floor(currentRating)) * 10).toString());
@@ -136,9 +127,8 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
             }
             setComment('');
         } else {
-            // Salida aún más rápida
             modalScale.value = withTiming(0, { 
-                duration: 30 // 30ms - desaparece al instante
+                duration: 30 
             });
             modalOpacity.value = withTiming(0, { 
                 duration: 30 
@@ -150,7 +140,6 @@ const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) =>
     const ratingColor = getDecimalColor(finalRating);
 
     const handleSave = () => {
-        // Guardar inmediatamente, sin animación extra
         onSave(finalRating, comment);
         onClose();
     };

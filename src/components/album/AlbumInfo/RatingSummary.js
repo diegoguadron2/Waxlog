@@ -1,4 +1,3 @@
-// components/album/AlbumInfo/RatingSummary.js
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { getRatingColor } from '../../shared/RatingBadge';
@@ -37,7 +36,6 @@ const RatingSummary = ({ tracks, dominantColor }) => {
       
       {ranges.map((range, index) => {
         const barWidth = (range.count / maxCount) * 100;
-        // Usar color de rating para rangos con calificación, dominantColor para sin calificar
         const barColor = index < 5
           ? getRatingColor(range.min)
           : (dominantColor ? dominantColor + '80' : '#4B5563');

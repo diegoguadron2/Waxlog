@@ -45,7 +45,6 @@ export default function SettingsScreen({ navigation }) {
         setLoading(true);
         await backupService.restoreBackup();
         setLoading(false);
-        // No recargamos la info aquí porque la app necesita reiniciarse después de restaurar
     };
 
     return (
@@ -59,7 +58,6 @@ export default function SettingsScreen({ navigation }) {
             </LinearGradient>
 
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                {/* Info de la base de datos */}
                 <View style={styles.infoCard}>
                     <Text style={styles.infoTitle}>Base de datos actual</Text>
                     {backupInfo.exists ? (
@@ -74,7 +72,6 @@ export default function SettingsScreen({ navigation }) {
                     )}
                 </View>
 
-                {/* Sección de Backup */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Respaldo de datos</Text>
 
@@ -117,7 +114,6 @@ export default function SettingsScreen({ navigation }) {
                     </TouchableOpacity>
                 </View>
 
-                {/* Información adicional */}
                 <View style={styles.infoCard}>
                     <View style={styles.infoHeader}>
                         <Ionicons name="information-circle-outline" size={20} color="#60A5FA" />
@@ -131,7 +127,6 @@ export default function SettingsScreen({ navigation }) {
                     </Text>
                 </View>
 
-                {/* Versión de la app */}
                 <View style={styles.versionContainer}>
                     <Text style={styles.versionText}>Bitácora Musical v1.0.0</Text>
                 </View>

@@ -1,4 +1,3 @@
-// components/AlbumSkeleton/index.js
 import React, { memo } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 

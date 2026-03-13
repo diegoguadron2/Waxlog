@@ -149,7 +149,6 @@ export default function TrackScreen({ route, navigation }) {
     setLoading(true);
     try {
       if (trackId) {
-        // Usar repositorio - él maneja las conexiones
         const trackData = await trackRepository.getTrackById(trackId);
         if (trackData) {
           setTrack(trackData);

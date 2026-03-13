@@ -1,4 +1,3 @@
-// components/shared/ImageWithFallback/index.js
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
@@ -20,20 +19,17 @@ const ImageWithFallback = ({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // 👇 NUEVO: Verificar si la imagen ya está en caché
+  
   useEffect(() => {
     const checkCache = async () => {
       if (!source) return;
       
       try {
-        // Intentar obtener el estado de la imagen del caché
         const isCached = await Image.getCachePathAsync?.(source);
         if (isCached) {
-          // Si está en caché, asumimos que cargará rápido
           setIsLoading(false);
         }
       } catch (e) {
-        // Ignorar errores de verificación de caché
       }
     };
     
@@ -53,12 +49,10 @@ const ImageWithFallback = ({
     onError?.(error);
   };
 
-  // Skeleton por defecto
   const defaultSkeleton = (
     <View style={[styles.skeleton, style]} />
   );
 
-  // Fallback por defecto
   const defaultFallback = (
     <View style={[styles.fallback, style]}>
       <Ionicons name="image-outline" size={30} color="rgba(255,255,255,0.3)" />

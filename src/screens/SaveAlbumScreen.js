@@ -19,7 +19,6 @@ import deezerApi from '../services/deezerApi';
 const { width, height } = Dimensions.get('window');
 
 export default function SaveAlbumScreen({ navigation }) {
-    // Referencias para inputs
     const artistInputRef = useRef(null);
     const albumTitleInputRef = useRef(null);
 
@@ -298,10 +297,8 @@ export default function SaveAlbumScreen({ navigation }) {
             artistId = Number(artistId);
             console.log('artistId como número:', artistId, 'tipo:', typeof artistId);
 
-            // Procesar géneros en formato JSON
             let genresData = null;
             if (selectedGenres.length > 0) {
-                // Usar el formato que espera AlbumScreen (array de strings)
                 genresData = JSON.stringify(selectedGenres);
                 console.log('Géneros seleccionados:', selectedGenres);
                 console.log('JSON string:', genresData);
@@ -314,7 +311,6 @@ export default function SaveAlbumScreen({ navigation }) {
             const fixedReleaseDate = albumYear ? `${albumYear}-01-01` : '';
             const fixedRecordType = albumType;
 
-            // Preparar datos para el helper
             const albumData = {
                 artist_id: artistId,
                 title: fixedTitle,
@@ -325,12 +321,12 @@ export default function SaveAlbumScreen({ navigation }) {
                 state: 'to_listen'
             };
 
-            console.log('📝 Enviando a saveManualAlbum:', albumData);
+            console.log('Enviando a saveManualAlbum:', albumData);
 
             // Usar el helper que ahora funciona correctamente
             const albumId = await dbHelpers.saveManualAlbum(albumData);
 
-            console.log('✅ Álbum guardado con ID:', albumId);
+            console.log(' Álbum guardado con ID:', albumId);
 
             // Guardar las canciones
             if (tracks.length > 0) {
@@ -344,12 +340,12 @@ export default function SaveAlbumScreen({ navigation }) {
                         duration: track.duration
                     };
                     await dbHelpers.saveManualTrack(trackData);
-                    console.log('✅ Canción guardada:', track.title);
+                    console.log('Canción guardada:', track.title);
                 }
             }
 
             Alert.alert(
-                '✅ Éxito',
+                'Éxito',
                 'Álbum guardado correctamente',
                 [{ text: 'OK', onPress: () => navigation.goBack() }]
             );

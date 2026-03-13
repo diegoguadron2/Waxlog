@@ -1,4 +1,3 @@
-// constants/layout.js
 import { Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -16,7 +15,6 @@ export const LAYOUT = {
   },
 };
 
-// También exportamos valores individuales para compatibilidad
 export const COLUMN_COUNT = 2;
 export const PADDING_HORIZONTAL = 16;
 export const GAP = 16;

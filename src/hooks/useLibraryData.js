@@ -1,4 +1,3 @@
-// hooks/useLibraryData.js - VERSIÓN CORREGIDA
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { executeDBOperation } from '../database/Index';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,7 +21,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
   const lastFocusTimeRef = useRef(0);
   const initialLoadDoneRef = useRef(false);
 
-  // Función para filtrar localmente - MEMORIZADA
   const filterAlbumsLocally = useCallback((albumsData, tabId, sortOption) => {
     if (!albumsData || albumsData.length === 0) return [];
 
@@ -50,7 +48,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
     return filtered;
   }, []);
 
-  // Actualizar filteredAlbums cuando cambian albums, activeTab o sortBy
   useEffect(() => {
     if (albums.length > 0) {
       const cacheKey = `${activeTab}-${sortBy}`;
@@ -69,27 +66,23 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
     }
   }, [albums, activeTab, sortBy, cachedAlbums, filterAlbumsLocally]);
 
-  // Cambiar pestaña
   const handleTabChange = useCallback((tabId) => {
     if (tabId === activeTab) return;
 
     console.log(`🔄 Cambiando a pestaña: ${tabId}`);
     setActiveTab(tabId);
 
-    // Resetear ordenamiento a reciente por defecto al cambiar de pestaña
     if (sortBy !== 'recent_desc') {
       setSortBy('recent_desc');
     }
   }, [activeTab, sortBy]);
 
-  // Cambiar ordenamiento
   const handleSortChange = useCallback((optionId) => {
     if (optionId === sortBy) return;
     console.log(`🔄 Cambiando orden a: ${optionId}`);
     setSortBy(optionId);
   }, [sortBy]);
 
-  // Cargar datos iniciales
   const loadInitialData = useCallback(async () => {
     if (isLoadingRef.current || !mountedRef.current || initialLoadDoneRef.current) return;
 
@@ -98,7 +91,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
 
     try {
       await executeDBOperation(async (db) => {
-        // Cargar contadores
         const counts = await Promise.all([
           db.getFirstAsync('SELECT COUNT(*) as count FROM albums WHERE state = ?', ['listened']),
           db.getFirstAsync('SELECT COUNT(*) as count FROM albums WHERE state = ?', ['listening']),
@@ -115,7 +107,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
           setTabCounts(newTabCounts);
         }
 
-        // Cargar TODOS los álbumes
         const allAlbums = await db.getAllAsync(`
           SELECT 
             a.*, 
@@ -132,7 +123,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
         if (mountedRef.current) {
           setAlbums(allAlbums);
 
-          // Opciones de ordenamiento
           const baseOptions = [
             { id: 'recent_desc', label: 'Más recientes', icon: 'time' },
             { id: 'recent_asc', label: 'Más antiguos', icon: 'time-outline' },
@@ -146,7 +136,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
             { id: 'rating_asc', label: 'Peor calificados', icon: 'star-outline' },
           ];
 
-          // Construir caché
           const newCache = {};
 
           tabs.filter(t => t.id !== 'listened').forEach(tab => {
@@ -165,7 +154,7 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
           }
 
           setCachedAlbums(newCache);
-          console.log(`✅ Cargados ${allAlbums.length} álbumes`);
+          console.log(` Cargados ${allAlbums.length} álbumes`);
           initialLoadDoneRef.current = true;
         }
       });
@@ -180,7 +169,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
     }
   }, [tabs, filterAlbumsLocally]);
 
-  // Función de refresh
   const refreshData = useCallback(async () => {
     if (isLoadingRef.current || !mountedRef.current) return;
 
@@ -190,7 +178,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
 
     try {
       await executeDBOperation(async (db) => {
-        // Actualizar contadores
         const counts = await Promise.all([
           db.getFirstAsync('SELECT COUNT(*) as count FROM albums WHERE state = ?', ['listened']),
           db.getFirstAsync('SELECT COUNT(*) as count FROM albums WHERE state = ?', ['listening']),
@@ -207,7 +194,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
           setTabCounts(newTabCounts);
         }
 
-        // Cargar álbumes actualizados
         const allAlbums = await db.getAllAsync(`
           SELECT 
             a.*, 
@@ -224,7 +210,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
         if (mountedRef.current) {
           setAlbums(allAlbums);
 
-          // Reconstruir caché
           const baseOptions = [
             { id: 'recent_desc', label: 'Más recientes', icon: 'time' },
             { id: 'recent_asc', label: 'Más antiguos', icon: 'time-outline' },
@@ -269,10 +254,8 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
     }
   }, [tabs, filterAlbumsLocally]);
 
-  // useFocusEffect - CON DEPENDENCIAS VACÍAS
   useFocusEffect(
     useCallback(() => {
-      // Throttle: solo actualizar si pasó más de 2 segundos
       const now = Date.now();
       if (now - lastFocusTimeRef.current < 2000) {
         console.log('⏱️ Library recarga ignorada (throttle)');
@@ -290,7 +273,6 @@ export const useLibraryData = (tabs, initialTab = 'to_listen') => {
     }, [])
   );
 
-  // Carga inicial
   useEffect(() => {
     loadInitialData();
     return () => {

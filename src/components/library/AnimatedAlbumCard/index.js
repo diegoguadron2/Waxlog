@@ -1,4 +1,3 @@
-// components/library/AnimatedAlbumCard.js
 import React, { useEffect } from 'react';
 import Animated, {
   useAnimatedStyle,
@@ -86,7 +85,6 @@ const AnimatedAlbumCard = ({ album, viewMode, activeTab, onPress, cardWidth }) =
 };
 
 const styles = {
-  // Grid styles
   gridContainer: {
     width: '100%',
   },
@@ -122,7 +120,6 @@ const styles = {
     marginTop: 2,
   },
   
-  // List styles
   listContainer: {
     flexDirection: 'row',
     alignItems: 'center',

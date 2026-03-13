@@ -1,4 +1,3 @@
-// screens/ListenedScreen.js
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
@@ -10,7 +9,6 @@ import { useFocusEffect } from '@react-navigation/native';
 const TAB_BAR_STYLE = { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.8)', borderTopWidth: 0, elevation: 0, height: 70, paddingBottom: 10, paddingTop: 10 };
 import { useAlbumsByState } from '../hooks/useAlbumsByState';
 
-// Componentes
 import AlbumCard from '../components/library/AlbumCard';
 import AlbumSkeleton from '../components/library/AlbumSkeleton';
 import LibraryHeader from '../components/library/LibraryHeader';
@@ -172,7 +170,6 @@ export default function ListenedScreen({ navigation }) {
   );
 }
 
-// Los estilos son los mismos que ya tenías
 const styles = StyleSheet.create({
   container: {
     flex: 1,

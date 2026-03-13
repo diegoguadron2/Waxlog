@@ -17,7 +17,6 @@ import Animated, {
   runOnJS
 } from 'react-native-reanimated';
 
-// Colores pastel para calificaciones
 const getRatingColor = (rating) => {
   if (!rating) return '#4B5563';
   const roundedRating = Math.round(rating);
@@ -28,7 +27,6 @@ const getRatingColor = (rating) => {
   return colors[Math.min(9, Math.max(0, roundedRating - 1))];
 };
 
-// Componente de animación al presionar - AHORA RECIBE onPress DIRECTAMENTE
 const PressAnimation = ({ children, onPress }) => {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
@@ -47,7 +45,7 @@ const PressAnimation = ({ children, onPress }) => {
     <TouchableOpacity
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      onPress={onPress} // 👈 Simplemente ejecuta la función que recibe
+      onPress={onPress} 
       activeOpacity={1}
     >
       <Animated.View
@@ -74,14 +72,12 @@ const AlbumCard = ({
   const ratingColor = showRating ? getRatingColor(album.average_rating) : '#4B5563';
   const coverSource = album.cover_local || album.cover;
 
-  // Progreso de escucha (solo en Escuchando)
   const showProgress = activeTab === 'listening' && album.total_tracks > 0;
   const ratedTracks = album.rated_tracks || 0;
   const totalTracks = album.total_tracks || 0;
   const progressRatio = showProgress ? ratedTracks / totalTracks : 0;
   const PROGRESS_COLOR = '#60A5FA';
 
-  // Animación de entrada
   const fadeAnim = useSharedValue(0);
   const translateY = useSharedValue(20);
 
@@ -95,10 +91,8 @@ const AlbumCard = ({
     transform: [{ translateY: translateY.value }],
   }));
 
-  // 👇 NUEVA FUNCIÓN: Maneja la precarga y luego llama a onPress
   const handlePressWithPreload = async () => {
     try {
-      // 1. Precargar la imagen de alta resolución
       const largeImageUrl = album.cover?.includes('/250x250-')
         ? album.cover.replace('/250x250-', '/1000x1000-')
         : album.cover;
@@ -108,11 +102,9 @@ const AlbumCard = ({
         await new Promise(resolve => setTimeout(resolve, 50));
       }
 
-      // 2. Una vez precargada, navegar
       onPress(album);
     } catch (error) {
       console.log('Error precargando imagen:', error);
-      // Si falla la precarga, navegar de todas formas
       onPress(album);
     }
   };
@@ -121,7 +113,6 @@ const AlbumCard = ({
   if (viewMode === 'grid') {
     return (
       <Animated.View style={[animatedStyle, { width: cardWidth }]}>
-        {/* 👈 Pasamos handlePressWithPreload en lugar de una función anónima */}
         <PressAnimation onPress={handlePressWithPreload}>
           <View style={[styles.gridCard, showRating && { borderColor: ratingColor, borderWidth: 2 }]}>
             <View style={styles.gridImageContainer}>
@@ -177,7 +168,6 @@ const AlbumCard = ({
   // Renderizado para vista lista
   return (
     <Animated.View style={animatedStyle}>
-      {/* 👈 También aquí pasamos handlePressWithPreload */}
       <PressAnimation onPress={handlePressWithPreload}>
         <View style={[
           styles.listCard,

@@ -1,4 +1,3 @@
-// components/SortMenu/index.js
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,7 +51,7 @@ const SortMenu = ({
 const styles = StyleSheet.create({
   sortMenu: {
     position: 'absolute',
-    top: 220, // Esto lo calcularemos dinámicamente después
+    top: 220,
     left: PADDING_HORIZONTAL,
     backgroundColor: '#1a1a1a',
     borderRadius: 12,

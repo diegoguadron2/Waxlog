@@ -1,4 +1,3 @@
-// components/shared/PressAnimation/index.js
 import React from 'react';
 import { TouchableOpacity } from 'react-native';
 import Animated, { 
@@ -13,12 +12,12 @@ import Animated, {
  * Componente de animación al presionar con Reanimated
  * 
  * @param {Object} props
- * @param {React.ReactNode} props.children - Contenido a animar
- * @param {Function} props.onPress - Función al presionar
- * @param {number} props.scaleTo - Escala al presionar (default: 0.95)
- * @param {number} props.opacityTo - Opacidad al presionar (default: 0.8)
- * @param {Object} props.style - Estilos adicionales para el Animated.View
- * @param {boolean} props.disabled - Deshabilitar animación
+ * @param {React.ReactNode} props.children 
+ * @param {Function} props.onPress 
+ * @param {number} props.scaleTo 
+ * @param {number} props.opacityTo 
+ * @param {Object} props.style 
+ * @param {boolean} props.disabled
  */
 const PressAnimation = ({
   children,

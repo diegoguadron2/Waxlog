@@ -1,4 +1,3 @@
-// components/album/TracksList/index.js
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import TrackItem from './TrackItem';
@@ -15,7 +14,6 @@ const TracksList = ({
         return null;
     }
 
-    // 👇 Agrupar tracks por disco correctamente
     const groupedTracks = useMemo(() => {
         const groups = [];
         let currentGroup = [];
@@ -25,15 +23,13 @@ const TracksList = ({
         tracks.forEach((track, index) => {
             const currentNumber = track.track_number || index + 1;
 
-            // Detectar nuevo disco: cuando el número actual es MENOR que el anterior
-            // O cuando es 1 y el anterior no era 1 (comienza nuevo disco)
+    
             const isNewDisk = lastTrackNumber !== null && (
                 currentNumber < lastTrackNumber ||
                 (currentNumber === 1 && lastTrackNumber > 1)
             );
 
             if (isNewDisk) {
-                // Guardar el grupo actual
                 if (currentGroup.length > 0) {
                     groups.push({
                         diskNumber: currentDiskNumber,
@@ -44,7 +40,6 @@ const TracksList = ({
                 }
             }
 
-            // Agregar track al grupo actual con el número de disco
             currentGroup.push({
                 ...track,
                 displayNumber: currentNumber,
@@ -54,7 +49,6 @@ const TracksList = ({
             lastTrackNumber = currentNumber;
         });
 
-        // Guardar el último grupo
         if (currentGroup.length > 0) {
             groups.push({
                 diskNumber: currentDiskNumber,

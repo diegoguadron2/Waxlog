@@ -1,4 +1,3 @@
-// components/shared/FavoriteStar/index.js
 import React, { useEffect } from 'react';
 import { TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { 
@@ -16,13 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
  * Componente FavoriteStar con Reanimated
  * 
  * @param {Object} props
- * @param {boolean} props.isFavorite - Estado de favorito
- * @param {Function} props.onPress - Función al presionar
- * @param {number} props.size - Tamaño del icono
- * @param {string} props.color - Color del icono (default: '#FFD700')
- * @param {Object} props.style - Estilos adicionales
- * @param {boolean} props.disabled - Deshabilitar interacción
- * @param {boolean} props.animated - Activar animación (default: true)
+ * @param {boolean} props.isFavorite
+ * @param {Function} props.onPress 
+ * @param {number} props.size 
+ * @param {string} props.color 
+ * @param {Object} props.style 
+ * @param {boolean} props.disabled 
+ * @param {boolean} props.animated 
  */
 const FavoriteStar = ({
   isFavorite,
@@ -37,14 +36,12 @@ const FavoriteStar = ({
   const rotation = useSharedValue(0);
   const favoriteState = useSharedValue(isFavorite ? 1 : 0);
 
-  // Sincronizar estado cuando cambia externamente
   useEffect(() => {
     favoriteState.value = isFavorite ? 1 : 0;
   }, [isFavorite]);
 
   useEffect(() => {
     if (animated) {
-      // Secuencia de animación cuando cambia el estado
       scale.value = withSequence(
         withSpring(1.3, { damping: 10 }),
         withSpring(1)
@@ -75,10 +72,8 @@ const FavoriteStar = ({
   const handlePress = () => {
     if (disabled) return;
     
-    // Cambiar estado local para animación inmediata
     favoriteState.value = favoriteState.value === 1 ? 0 : 1;
     
-    // Animar
     scale.value = withSequence(
       withSpring(1.4, { damping: 8 }),
       withSpring(1)
@@ -89,7 +84,6 @@ const FavoriteStar = ({
       withTiming(0, { duration: 0 })
     );
 
-    // Llamar al callback después de la animación
     runOnJS(onPress)();
   };
 

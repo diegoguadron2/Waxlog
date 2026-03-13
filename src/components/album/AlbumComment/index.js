@@ -1,4 +1,3 @@
-// components/album/AlbumComment/index.js
 import React, { useState } from 'react';
 import {
     View,
@@ -11,18 +10,17 @@ import { Ionicons } from '@expo/vector-icons';
 
 /**
  * Componente AlbumComment
- * Muestra y permite editar el comentario del álbum
+ * 
  * 
  * @param {Object} props
- * @param {string} props.comment - Comentario actual del álbum
- * @param {boolean} props.isSaved - Si el álbum está guardado
- * @param {Function} props.onSaveComment - Función para guardar comentario
+ * @param {string} props.comment
+ * @param {boolean} props.isSaved 
+ * @param {Function} props.onSaveComment 
  */
 const AlbumComment = ({ comment, isSaved, onSaveComment }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [tempComment, setTempComment] = useState('');
 
-    // Si no está guardado, no mostrar nada
     if (!isSaved) return null;
 
     const handleStartEdit = () => {
@@ -46,7 +44,6 @@ const AlbumComment = ({ comment, isSaved, onSaveComment }) => {
         }
     };
 
-    // Modo edición
     if (isEditing) {
         return (
             <View style={styles.container}>
@@ -71,7 +68,6 @@ const AlbumComment = ({ comment, isSaved, onSaveComment }) => {
         );
     }
 
-    // Modo visualización (con comentario)
     if (comment) {
         return (
             <TouchableOpacity onPress={handleStartEdit} style={styles.container}>
@@ -81,7 +77,6 @@ const AlbumComment = ({ comment, isSaved, onSaveComment }) => {
         );
     }
 
-    // Modo visualización (sin comentario)
     return (
         <TouchableOpacity onPress={handleStartEdit} style={[styles.container, styles.addContainer]}>
             <Ionicons name="pencil" size={18} color="rgba(255,255,255,0.5)" />
@@ -94,7 +89,6 @@ const styles = StyleSheet.create({
     container: {
         marginBottom: 24,
     },
-    // Modo edición
     input: {
         color: 'white',
         fontSize: 16,
@@ -128,7 +122,6 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 1,
     },
-    // Modo visualización con comentario
     label: {
         color: 'rgba(255,255,255,0.6)',
         fontSize: 14,
@@ -144,7 +137,6 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 1,
     },
-    // Modo visualización sin comentario
     addContainer: {
         flexDirection: 'row',
         alignItems: 'center',

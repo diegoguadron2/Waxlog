@@ -1,4 +1,3 @@
-// navigation/AppNavigator.js
 import React, { useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -6,12 +5,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// Screens principales (solo los 3 estados)
 import ListenedScreen from '../screens/ListenedScreen';
 import ListeningScreen from '../screens/ListeningScreen';
 import ToListenScreen from '../screens/ToListenScreen';
 
-// Otras screens
 import SearchScreen from '../screens/SearchScreen';
 import ArtistScreen from '../screens/ArtistScreen';
 import AlbumScreen from '../screens/AlbumScreen';
@@ -26,17 +23,16 @@ import SettingsScreen from '../screens/SettingsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Configuración de animaciones para las pantallas de estado
 const stateStackAnimationOptions = {
   headerShown: false,
   contentStyle: { backgroundColor: 'transparent' },
-  animation: 'slide_from_right', // Animación básica de deslizamiento
-  animationDuration: 300, // Duración de la animación en ms
-  gestureEnabled: true, // Habilitar gestos para navegar hacia atrás
-  gestureDirection: 'horizontal', // Dirección del gesto
+  animation: 'slide_from_right', 
+  animationDuration: 300, 
+  gestureEnabled: true, 
+  gestureDirection: 'horizontal', 
 };
 
-// Stack para las pantallas de los 3 estados con animaciones
+
 const StateStack = ({ state }) => {
   const getComponent = () => {
     switch(state) {
@@ -54,7 +50,7 @@ const StateStack = ({ state }) => {
         name="Album" 
         component={AlbumScreen} 
         options={{
-          animation: 'fade', // Animación de fade para entrar a Album
+          animation: 'fade', 
           animationDuration: 300,
         }}
       />
@@ -62,7 +58,7 @@ const StateStack = ({ state }) => {
         name="Artist" 
         component={ArtistScreen}
         options={{
-          animation: 'slide_from_bottom', // Animación desde abajo para Artist
+          animation: 'slide_from_bottom', 
           animationDuration: 300,
         }}
       />
@@ -94,7 +90,6 @@ const StateStack = ({ state }) => {
   );
 };
 
-// Stack principal (sin cambios en animaciones)
 const MainStackNavigator = () => (
   <Stack.Navigator 
     screenOptions={{ 
@@ -116,7 +111,6 @@ const MainStackNavigator = () => (
   </Stack.Navigator>
 );
 
-// Componente personalizado para el TabBar (sin cambios)
 const CustomTabBar = ({ state, descriptors, navigation }) => {
   return (
     <View style={styles.tabBarContainer}>
@@ -165,7 +159,6 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
   );
 };
 
-// Tab Navigator (sin cambios)
 const TabNavigator = () => (
   <Tab.Navigator
     tabBar={props => <CustomTabBar {...props} />}

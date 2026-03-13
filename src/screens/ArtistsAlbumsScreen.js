@@ -1,4 +1,3 @@
-// screens/ArtistsAlbumsScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -23,7 +22,6 @@ const GAP = 10;
 const CARD_WIDTH = (width - PADDING * 2 - GAP) / 2;
 const CARD_HEIGHT = CARD_WIDTH * 1.1;
 
-// ─── Skeleton ────────────────────────────────────────────────────────────────
 const Skeleton = () => (
   <View style={sk.container}>
     <View style={sk.header}>
@@ -49,7 +47,6 @@ const sk = StyleSheet.create({
   card: { borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', marginBottom: GAP },
 });
 
-// ─── Card de género ───────────────────────────────────────────────────────────
 const GenreCard = ({ genre, isTop3, onPress }) => {
   const hasImage = !!genre.coverImage;
 
@@ -59,7 +56,6 @@ const GenreCard = ({ genre, isTop3, onPress }) => {
       onPress={() => onPress(genre)}
       activeOpacity={0.82}
     >
-      {/* Fondo: portada o color sólido */}
       {hasImage ? (
         <ImageBackground
           source={{ uri: genre.coverImage }}
@@ -67,7 +63,6 @@ const GenreCard = ({ genre, isTop3, onPress }) => {
           imageStyle={{ borderRadius: 16 }}
           blurRadius={0}
         >
-          {/* Gradiente oscuro para legibilidad */}
           <LinearGradient
             colors={['rgba(0,0,0,0.08)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
             locations={[0, 0.5, 1]}
@@ -83,14 +78,13 @@ const GenreCard = ({ genre, isTop3, onPress }) => {
         />
       )}
 
-      {/* Badge top 3 */}
       {isTop3 && (
         <View style={styles.flameBadge}>
           <Ionicons name="flame" size={11} color="#FF6B35" />
         </View>
       )}
 
-      {/* Rating promedio (esquina superior derecha) */}
+      {/* Rating promedio */}
       {genre.avgRating > 0 && (
         <View style={[styles.ratingBadge, { borderColor: getRatingColor(genre.avgRating) + '80' }]}>
           <Text style={[styles.ratingText, { color: getRatingColor(genre.avgRating) }]}>
@@ -113,17 +107,15 @@ const GenreCard = ({ genre, isTop3, onPress }) => {
   );
 };
 
-// ─── Pantalla principal ───────────────────────────────────────────────────────
 export default function ArtistsAlbumsScreen({ navigation }) {
   const [genres, setGenres] = useState([]);
   const [filteredGenres, setFilteredGenres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('count'); // default: más álbumes primero
+  const [sortBy, setSortBy] = useState('count'); 
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [stats, setStats] = useState({ totalGenres: 0, totalAlbums: 0 });
 
-  // Restaurar tab bar al volver
   useFocusEffect(
     useCallback(() => {
       navigation.getParent()?.setOptions({
@@ -160,7 +152,6 @@ export default function ArtistsAlbumsScreen({ navigation }) {
     try {
       setLoading(true);
       const result = await executeDBOperation(async (db) => {
-        // Álbumes con géneros + una portada por género + rating promedio
         const albums = await db.getAllAsync(`
           SELECT a.genres, a.cover,
             AVG(t.rating) as average_rating
@@ -170,7 +161,7 @@ export default function ArtistsAlbumsScreen({ navigation }) {
           GROUP BY a.id
         `);
 
-        const genreMap = new Map(); // name → { count, covers, ratingSum, ratingCount }
+        const genreMap = new Map(); 
 
         albums.forEach(item => {
           if (!item.genres) return;
@@ -192,7 +183,6 @@ export default function ArtistsAlbumsScreen({ navigation }) {
           } catch (_) {}
         });
 
-        // Colores pastel para fallback
         const pastelColors = [
           '#7C3AED', '#E67E22', '#16A085', '#C0392B', '#2980B9',
           '#8E44AD', '#27AE60', '#D35400', '#2C3E50', '#E91E63',
@@ -219,7 +209,6 @@ export default function ArtistsAlbumsScreen({ navigation }) {
       });
 
       if (result) {
-        // Default: ordenar por cantidad
         const sorted = [...result.genres].sort((a, b) => b.count - a.count);
         setGenres(sorted);
         setFilteredGenres(sorted);
@@ -236,7 +225,6 @@ export default function ArtistsAlbumsScreen({ navigation }) {
     navigation.navigate('Genre', { genre: genre.name, color: genre.color });
   }, [navigation]);
 
-  // Top 3 por cantidad de álbumes
   const top3Ids = new Set(
     [...genres].sort((a, b) => b.count - a.count).slice(0, 3).map(g => g.id)
   );
@@ -285,7 +273,6 @@ export default function ArtistsAlbumsScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* Búsqueda + ordenar */}
         <View style={styles.controlsRow}>
           <View style={styles.searchBox}>
             <Ionicons name="search" size={16} color="rgba(255,255,255,0.4)" />
@@ -339,7 +326,6 @@ export default function ArtistsAlbumsScreen({ navigation }) {
   );
 }
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -350,7 +336,6 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  // Header
   header: {
     paddingTop: 60,
     paddingBottom: 16,
@@ -366,7 +351,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Controles
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -402,14 +386,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // Grid
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
 
-  // Card
   card: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -466,7 +448,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  // Sort menu
   sortOverlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
@@ -507,7 +488,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Empty
   empty: {
     alignItems: 'center',
     paddingVertical: 80,

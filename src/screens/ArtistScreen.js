@@ -1,4 +1,3 @@
-// screens/ArtistScreen.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -33,9 +32,7 @@ import { getRatingColor } from '../utils/colors';
 
 const { width, height } = Dimensions.get('window');
 
-// Determinar el tipo de álbum usando record_type de la API como fuente principal
 const getAlbumTypeFromData = (album) => {
-  // Prioridad 1: record_type viene directamente de Deezer, es la fuente más confiable
   if (album.record_type) {
     const type = album.record_type.toLowerCase();
     if (type === 'ep') return 'EP';
@@ -45,8 +42,6 @@ const getAlbumTypeFromData = (album) => {
     if (type === 'compilation') return 'Compilación';
   }
 
-  // Prioridad 2: si no hay record_type (álbumes locales sin ese campo),
-  // usar nb_tracks como aproximación numérica objetiva
   const nb_tracks = album.nb_tracks || album.total_tracks || 0;
   if (nb_tracks === 1) return 'Single';
   if (nb_tracks <= 6) return 'EP';
@@ -54,7 +49,6 @@ const getAlbumTypeFromData = (album) => {
   return 'Álbum';
 };
 
-// Formatear número de fans
 const formatFans = (fans) => {
   if (!fans) return null;
   if (fans >= 1000000) return `${(fans / 1000000).toFixed(1)}M`;
@@ -62,9 +56,7 @@ const formatFans = (fans) => {
   return fans.toString();
 };
 
-// Animación 1 y 2: card con fade/slide de entrada y press feedback
 const AnimatedAlbumCard = ({ album, index, onPress, getRatingColor, formatDate, styles }) => {
-  // Animación 1: entrada escalonada
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
 
@@ -73,7 +65,6 @@ const AnimatedAlbumCard = ({ album, index, onPress, getRatingColor, formatDate, 
     translateY.value = withDelay(index * 60, withTiming(0, { duration: 350 }));
   }, []);
 
-  // Animación 2: press feedback con spring
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -161,7 +152,6 @@ export default function ArtistScreen({ route, navigation }) {
   const [artist, setArtist] = useState(initialArtist);
   const [artistDetails, setArtistDetails] = useState(null);
 
-  // Si el artista llega sin imagen (ej. desde AlbumScreen), buscarla en la BD
   useEffect(() => {
     const hasPicture = initialArtist.picture_big || initialArtist.picture_medium || initialArtist.picture;
     if (hasPicture) return;
@@ -188,16 +178,13 @@ export default function ArtistScreen({ route, navigation }) {
   const [connectionChecked, setConnectionChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // 👇 ESTADOS PARA FILTROS
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'album', 'ep', 'single', 'live', 'compilation'
+  const [activeFilter, setActiveFilter] = useState('all'); 
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [filterMenuPosition, setFilterMenuPosition] = useState({ top: 0, left: 0 });
   const filterButtonRef = useRef(null);
 
-  // 👇 VALOR ANIMADO PARA EL SCROLL (parallax con Animated nativo)
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // Animación 3: fade in del header al terminar de cargar
   const headerOpacity = useSharedValue(0);
   const headerTranslateY = useSharedValue(20);
 
@@ -206,7 +193,6 @@ export default function ArtistScreen({ route, navigation }) {
     transform: [{ translateY: headerTranslateY.value }],
   }));
 
-  // 👇 ESTILOS ANIMADOS PARA LA IMAGEN (PARALLAX)
   const imageAnimatedStyle = {
     transform: [
       {
@@ -226,7 +212,6 @@ export default function ArtistScreen({ route, navigation }) {
     ],
   };
 
-  // Ocultar el tab navigator
   useEffect(() => {
     navigation.getParent()?.setOptions({
       tabBarStyle: { display: 'none' }
@@ -234,7 +219,6 @@ export default function ArtistScreen({ route, navigation }) {
     
   }, [navigation]);
 
-  // Verificar conexión a internet
   useEffect(() => {
     let isMounted = true;
     
@@ -260,7 +244,6 @@ export default function ArtistScreen({ route, navigation }) {
     };
   }, []);
 
-  // Cargar ID local del artista
   useEffect(() => {
     let isMounted = true;
     
@@ -288,7 +271,6 @@ export default function ArtistScreen({ route, navigation }) {
     };
   }, [artist.id]);
 
-  // Cargar todos los datos del artista (detalles + álbumes)
   const loadData = useCallback(async ({ showFullLoading = false } = {}) => {
     if (!connectionChecked) return;
 
@@ -316,7 +298,6 @@ export default function ArtistScreen({ route, navigation }) {
     } finally {
       if (showFullLoading) {
         setLoading(false);
-        // Animación 3: fade in del header al terminar de cargar
         headerOpacity.value = withTiming(1, { duration: 400 });
         headerTranslateY.value = withTiming(0, { duration: 400 });
       }
@@ -329,7 +310,6 @@ export default function ArtistScreen({ route, navigation }) {
     }
   }, [artist.id, isConnected, connectionChecked]);
 
-  // Cargar álbumes cuando cambia el ID local del artista
   useEffect(() => {
     if (connectionChecked) {
       if (isConnected) {
@@ -340,14 +320,12 @@ export default function ArtistScreen({ route, navigation }) {
     }
   }, [localArtistId, isConnected, connectionChecked]);
 
-  // Manejar cambios de pestaña
   useEffect(() => {
     if (connectionChecked && activeTab === 'related' && isConnected) {
       loadRelatedArtists();
     }
   }, [activeTab, isConnected, connectionChecked]);
 
-  // 👇 EFECTO PARA FILTRAR ÁLBUMES CUANDO CAMBIA EL FILTRO ACTIVO
   useEffect(() => {
     if (albums.length > 0) {
       if (activeFilter === 'all') {
@@ -435,7 +413,6 @@ export default function ArtistScreen({ route, navigation }) {
       await executeDBOperation(async (db) => {
         let albumsList = [];
 
-        // Primero cargar locales
         if (localArtistId) {
           const localAlbums = await db.getAllAsync(
             `SELECT a.*, 
@@ -456,8 +433,7 @@ export default function ArtistScreen({ route, navigation }) {
           }));
         }
 
-        // Con conexión: mostrar discografía completa de la API
-        // marcando cuáles están guardados en la DB
+
         if (isConnected) {
           try {
             const apiAlbums = await deezerApi.getArtistAlbums(artist.id);
@@ -484,12 +460,10 @@ export default function ArtistScreen({ route, navigation }) {
             setFilteredAlbums(apiAlbumsList);
           } catch (apiError) {
             if (__DEV__) console.error('Error cargando álbumes de API:', apiError);
-            // Si falla la API, caer a los locales
             setAlbums(albumsList);
             setFilteredAlbums(albumsList);
           }
         } else {
-          // Sin conexión: solo los guardados en la DB
           setAlbums(albumsList);
           setFilteredAlbums(albumsList);
         }
@@ -524,7 +498,6 @@ export default function ArtistScreen({ route, navigation }) {
     return dateString.split('-')[0];
   };
 
-  // 👇 FUNCIÓN PARA OBTENER EL TEXTO DEL FILTRO ACTIVO
   const getActiveFilterLabel = () => {
     const filters = {
       'all': 'Todos',
@@ -537,7 +510,6 @@ export default function ArtistScreen({ route, navigation }) {
     return filters[activeFilter] || 'Filtrar';
   };
 
-  // 👇 MEDIR POSICIÓN DEL BOTÓN ANTES DE MOSTRAR EL MENÚ
   const handleFilterPress = () => {
     filterButtonRef.current?.measure((x, y, w, h, pageX, pageY) => {
       setFilterMenuPosition({ top: pageY + h + 6, left: pageX });
@@ -545,7 +517,6 @@ export default function ArtistScreen({ route, navigation }) {
     });
   };
 
-  // 👇 MENÚ DE FILTROS
   const renderFilterMenu = () => {
     if (!showFilterMenu) return null;
 
@@ -598,7 +569,6 @@ export default function ArtistScreen({ route, navigation }) {
     );
   };
 
-  // Si está cargando, mostrar skeleton
   if (loading || !connectionChecked) {
     return (
       <View style={[styles.container, { backgroundColor }]}>
@@ -849,7 +819,6 @@ export default function ArtistScreen({ route, navigation }) {
                       style={styles.relatedImage}
                       contentFit="cover"
                     />
-                    {/* Mejora 1: gradiente más fuerte y que cubre más área */}
                     <LinearGradient
                       colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.85)']}
                       locations={[0.4, 0.7, 1]}
@@ -859,7 +828,6 @@ export default function ArtistScreen({ route, navigation }) {
                       <Text style={styles.relatedName} numberOfLines={2}>
                         {relatedArtist.name}
                       </Text>
-                      {/* Mejora 3: ícono de flecha para indicar navegación */}
                       <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
                     </View>
                   </TouchableOpacity>
@@ -997,7 +965,6 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   
-  // 👇 ESTILOS PARA FILTROS
   filterBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1089,7 +1056,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   
-  // 👇 ESTILOS EXISTENTES
   loadingContainer: {
     paddingVertical: 40,
     alignItems: 'center',
@@ -1192,7 +1158,7 @@ const styles = StyleSheet.create({
   relatedGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10, // Mejora 2: gap entre cards en lugar de justifyContent space-between
+    gap: 10, 
   },
   relatedCard: {
     width: (width - 50) / 2,
@@ -1249,7 +1215,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  // Estilos para skeleton
   skeletonHeader: {
     flex: 1,
     backgroundColor: '#1a1a1a',

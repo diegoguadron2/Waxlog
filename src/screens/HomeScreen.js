@@ -1,4 +1,3 @@
-// screens/HomeScreen.js
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -17,11 +16,9 @@ import { getRatingColor } from '../utils/colors';
 
 const { width } = Dimensions.get('window');
 
-//  COMPONENTE SKELETON PARA HOME SCREEN
 const HomeSkeleton = () => {
   return (
     <View style={[styles.container, { backgroundColor: '#000000' }]}>
-      {/* Header skeleton */}
       <View style={styles.header}>
         <View style={styles.skeletonHeaderTitle} />
         <View style={styles.skeletonStatsRow}>
@@ -42,7 +39,6 @@ const HomeSkeleton = () => {
         </View>
       </View>
 
-      {/* Featured album skeleton */}
       <View style={styles.featuredSection}>
         <View style={styles.skeletonSectionHeader}>
           <View style={styles.skeletonSectionIcon} />
@@ -95,7 +91,6 @@ export default function HomeScreen({ navigation }) {
     };
   }, []);
 
-  // Cargar todos los datos en una sola operación
   const loadData = useCallback(async () => {
     if (isLoadingRef.current || !mountedRef.current) return;
 
@@ -105,7 +100,6 @@ export default function HomeScreen({ navigation }) {
     try {
       await executeDBOperation(async (db) => {
         
-        // 1. Cargar estadísticas generales
         const stats = await db.getFirstAsync(`
           SELECT 
             COUNT(*) as total,
@@ -126,7 +120,6 @@ export default function HomeScreen({ navigation }) {
           });
         }
 
-        // 2. Cargar álbum destacado (aleatorio)
         const featured = await db.getFirstAsync(`
           SELECT a.*, ar.name as artist_name
           FROM albums a
@@ -139,11 +132,9 @@ export default function HomeScreen({ navigation }) {
         if (featured && mountedRef.current) {
           setFeaturedAlbum(featured);
 
-          // Extraer color de la portada
           const color = await getAlbumColor(featured);
           setBackgroundColor(color);
 
-          // Calcular rating promedio del álbum
           const ratingResult = await db.getFirstAsync(
             'SELECT AVG(rating) as avg_rating FROM tracks WHERE album_id = ? AND rating IS NOT NULL',
             [featured.id]
@@ -151,7 +142,6 @@ export default function HomeScreen({ navigation }) {
           setAlbumRating(ratingResult?.avg_rating || 0);
         }
 
-        // 3. Cargar álbumes para el mosaico (15 aleatorios)
         const albums = await db.getAllAsync(`
           SELECT a.*, ar.name as artist_name
           FROM albums a
@@ -176,7 +166,6 @@ export default function HomeScreen({ navigation }) {
     }
   }, []);
 
-  // Función para obtener color del álbum
   const getAlbumColor = async (album) => {
     if (!album?.cover) return '#000000';
 
@@ -201,12 +190,10 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // Cargar datos al montar
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Renderizar mosaico
   const renderMosaic = () => {
     if (mosaicAlbums.length === 0) return null;
 
@@ -259,7 +246,6 @@ export default function HomeScreen({ navigation }) {
     return rows;
   };
 
-  // Si está cargando, mostrar skeleton
   if (loading) {
     return <HomeSkeleton />;
   }
@@ -268,13 +254,10 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Fondo con blur del color del álbum destacado */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor }]} />
 
-      {/* Overlay muy sutil para dar profundidad */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.2)' }]} />
 
-      {/* Gradiente superior */}
       <LinearGradient
         colors={['rgba(0,0,0,0.3)', 'transparent']}
         style={styles.topGradient}
@@ -285,7 +268,6 @@ export default function HomeScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header con estadísticas minimalistas */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Mi Colección</Text>
           <View style={styles.statsRow}>
@@ -306,7 +288,6 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Álbum destacado */}
         {featuredAlbum && (
           <View style={styles.featuredSection}>
             <View style={styles.sectionHeader}>
@@ -334,7 +315,6 @@ export default function HomeScreen({ navigation }) {
                 contentFit="cover"
               />
 
-              {/* Mejora 1: gradiente más suave, empieza más arriba y se desvanece gradualmente */}
               <LinearGradient
                 colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.92)']}
                 style={styles.featuredGradient}
@@ -342,7 +322,6 @@ export default function HomeScreen({ navigation }) {
               />
 
               <View style={styles.featuredOverlay}>
-                {/* Mejora 2: badge de estado sutil arriba a la izquierda, como chip pequeño */}
                 <View style={styles.featuredStateRow}>
                   {(() => {
                     const STATE_CONFIG = {
@@ -393,7 +372,6 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 ) : null}
 
-                {/* Mejora 3: ocultar "0 canciones", mostrar tipo de álbum en su lugar */}
                 <View style={styles.featuredFooter}>
                   {featuredAlbum.record_type && (
                     <View style={styles.featuredMeta}>
@@ -431,7 +409,6 @@ export default function HomeScreen({ navigation }) {
           </View>
         )}
 
-        {/* Mosaico - solo álbumes pendientes */}
         {mosaicAlbums.length > 0 ? (
           <View style={styles.mosaicSection}>
             <View style={styles.sectionHeader}>
@@ -459,7 +436,6 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-// ... (todos los styles se mantienen igual)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -558,7 +534,6 @@ const styles = StyleSheet.create({
     fontWeight: '300',
   },
 
-  // Estilos del álbum destacado
   featuredSection: {
     marginBottom: 30,
     paddingHorizontal: 20,
@@ -668,7 +643,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: '500',
   },
-  // Chips nuevos sutiles para estado y favorito
   featuredStateRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -718,7 +692,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  // Estilos del mosaico
   mosaicSection: {
     marginBottom: 20,
   },
@@ -798,7 +771,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
   },
 
-  // Estilos para vacío
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -828,7 +800,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  //  ESTILOS PARA SKELETONS
   skeletonHeaderTitle: {
     width: 150,
     height: 40,

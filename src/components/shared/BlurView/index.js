@@ -1,4 +1,3 @@
-// components/shared/BlurView/index.js
 import React from 'react';
 import { BlurView as ExpoBlurView } from 'expo-blur';
 import { StyleSheet } from 'react-native';
@@ -7,10 +6,10 @@ import { StyleSheet } from 'react-native';
  * Componente BlurView reutilizable
  * 
  * @param {Object} props
- * @param {number} props.intensity - Intensidad del blur (1-100)
- * @param {string} props.tint - Tono del blur ('light', 'dark', 'default')
- * @param {Object} props.style - Estilos adicionales
- * @param {React.ReactNode} props.children - Contenido hijo
+ * @param {number} props.intensity 
+ * @param {string} props.tint 
+ * @param {Object} props.style 
+ * @param {React.ReactNode} props.children 
  */
 const BlurView = ({
     intensity = 50,

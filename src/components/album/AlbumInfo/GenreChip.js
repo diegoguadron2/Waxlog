@@ -1,16 +1,14 @@
-// components/album/AlbumInfo/GenreChip.js
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 /**
  * Componente GenreChip
- * Chip de género clickeable que navega a la pantalla de ese género
  * 
  * @param {Object} props
- * @param {string} props.genre - Nombre del género
- * @param {string} props.backgroundColor - Color de fondo
- * @param {string} props.borderColor - Color del borde
+ * @param {string} props.genre 
+ * @param {string} props.backgroundColor 
+ * @param {string} props.borderColor 
  */
 const GenreChip = ({ genre, backgroundColor, borderColor }) => {
   const navigation = useNavigation();

@@ -1,26 +1,23 @@
-// database/Index.js
 import * as SQLite from 'expo-sqlite';
 
 let db = null;
 
-// Cola de operaciones para evitar "database is locked"
 let dbOperationQueue = Promise.resolve();
 let dbConnectionCount = 0;
 
 export const getDB = async () => {
   if (!db) {
-    console.log('📦 Abriendo base de datos...');
+    console.log('Abriendo base de datos...');
     db = await SQLite.openDatabaseAsync('bitacora.db');
-    console.log('✅ Base de datos lista');
+    console.log(' Base de datos lista');
   }
   return db;
 };
 
-// FUNCIÓN: Ejecutar operación en cola
 export const executeDBOperation = async (operation) => {
   dbOperationQueue = dbOperationQueue.then(async () => {
     dbConnectionCount++;
-    console.log(`🔌 Iniciando operación BD (${dbConnectionCount})`);
+    console.log(`Iniciando operación BD (${dbConnectionCount})`);
 
     const startTime = Date.now();
 
@@ -28,14 +25,13 @@ export const executeDBOperation = async (operation) => {
       const db = await getDB();
       const result = await operation(db);
       const duration = Date.now() - startTime;
-      console.log(`✅ Operación completada en ${duration}ms (${dbConnectionCount})`);
+      console.log(` Operación completada en ${duration}ms (${dbConnectionCount})`);
       return result;
     } catch (error) {
-      console.error('❌ Error en operación BD:', error);
+      console.error(' Error en operación BD:', error);
       throw error;
     } finally {
       dbConnectionCount--;
-      // Pequeña pausa para asegurar liberación de recursos
       await new Promise(resolve => setTimeout(resolve, 50));
     }
   });
@@ -43,62 +39,56 @@ export const executeDBOperation = async (operation) => {
   return dbOperationQueue;
 };
 
-// FUNCIÓN: Ejecutar transacción
 export const executeTransaction = async (operations) => {
   return executeDBOperation(async (db) => {
     try {
       await db.execAsync('BEGIN TRANSACTION;');
-      console.log('🔒 Transacción iniciada');
+      console.log(' Transacción iniciada');
 
       const result = await operations(db);
 
       await db.execAsync('COMMIT;');
-      console.log('🔓 Transacción completada');
+      console.log(' Transacción completada');
       return result;
     } catch (error) {
       await db.execAsync('ROLLBACK;');
-      console.log('🔓 Transacción cancelada (rollback)');
+      console.log(' Transacción cancelada (rollback)');
       throw error;
     }
   });
 };
 
-// 🔴 FUNCIÓN: Para reiniciar la conexión después de restaurar
 export const resetDB = async () => {
   return executeDBOperation(async () => {
     if (db) {
       try {
         await db.closeAsync();
-        console.log('📦 Conexión cerrada');
+        console.log(' Conexión cerrada');
       } catch (e) {
-        console.log('⚠️ Error cerrando conexión:', e);
+        console.log(' Error cerrando conexión:', e);
       }
       db = null;
     }
-    console.log('🔄 Base de datos reiniciada');
+    console.log(' Base de datos reiniciada');
   });
 };
 
-// 🔴 FUNCIÓN: Limpiar artistas huérfanos (sin álbumes)
 export const cleanupOrphanArtists = async () => {
   return executeDBOperation(async (db) => {
-    // Eliminar artistas sin álbumes
     const result = await db.runAsync(`
       DELETE FROM artists 
       WHERE id NOT IN (SELECT DISTINCT artist_id FROM albums WHERE artist_id IS NOT NULL)
     `);
 
-    console.log(`🧹 Eliminados ${result.changes || 0} artistas huérfanos`);
+    console.log(` Eliminados ${result.changes || 0} artistas huérfanos`);
     return result.changes || 0;
   });
 };
 
-// 🔴 FUNCIÓN: Verificar y reparar relaciones
 export const verifyRelations = async () => {
   return executeDBOperation(async (db) => {
     let fixes = { orphanTracks: 0, orphanAlbums: 0, orphanArtists: 0 };
 
-    // Verificar tracks con álbumes inexistentes
     const orphanTracks = await db.getAllAsync(`
       SELECT t.id, t.title 
       FROM tracks t
@@ -107,9 +97,8 @@ export const verifyRelations = async () => {
     `);
 
     if (orphanTracks.length > 0) {
-      console.log(`⚠️ Encontradas ${orphanTracks.length} canciones huérfanas`);
+      console.log(` Encontradas ${orphanTracks.length} canciones huérfanas`);
 
-      // Eliminar tracks huérfanos
       await db.runAsync(`
         DELETE FROM tracks 
         WHERE album_id NOT IN (SELECT id FROM albums)
@@ -117,7 +106,6 @@ export const verifyRelations = async () => {
       fixes.orphanTracks = orphanTracks.length;
     }
 
-    // Verificar álbumes con artistas inexistentes
     const orphanAlbums = await db.getAllAsync(`
       SELECT a.id, a.title 
       FROM albums a
@@ -126,9 +114,8 @@ export const verifyRelations = async () => {
     `);
 
     if (orphanAlbums.length > 0) {
-      console.log(`⚠️ Encontrados ${orphanAlbums.length} álbumes huérfanos`);
+      console.log(` Encontrados ${orphanAlbums.length} álbumes huérfanos`);
 
-      // Establecer artist_id a NULL para estos álbumes
       await db.runAsync(`
         UPDATE albums SET artist_id = NULL 
         WHERE artist_id NOT IN (SELECT id FROM artists)
@@ -136,19 +123,16 @@ export const verifyRelations = async () => {
       fixes.orphanAlbums = orphanAlbums.length;
     }
 
-    // Limpiar artistas huérfanos
     const deletedArtists = await cleanupOrphanArtists();
     fixes.orphanArtists = deletedArtists;
 
-    console.log('✅ Verificación completada:', fixes);
+    console.log('Verificación completada:', fixes);
     return fixes;
   });
 };
 
-// 🔴 FUNCIÓN: Recalcular estadísticas de álbumes
 export const refreshAlbumStats = async () => {
   return executeDBOperation(async (db) => {
-    // Actualizar total_tracks en albums
     await db.runAsync(`
       UPDATE albums 
       SET total_tracks = (
@@ -157,22 +141,19 @@ export const refreshAlbumStats = async () => {
       WHERE id IN (SELECT DISTINCT album_id FROM tracks)
     `);
 
-    console.log('✅ Estadísticas de álbumes actualizadas');
+    console.log('Estadísticas de álbumes actualizadas');
     return true;
   });
 };
 
-// 🔴 FUNCIÓN: Limpieza completa (para usar desde Settings)
 export const runFullCleanup = async () => {
-  console.log('🧹 Iniciando limpieza completa de la base de datos...');
+  console.log('Iniciando limpieza completa de la base de datos...');
 
-  // 1. Verificar y reparar relaciones
   const relations = await verifyRelations();
 
-  // 2. Actualizar estadísticas
   await refreshAlbumStats();
 
-  console.log('✅ Limpieza completada');
+  console.log('Limpieza completada');
   return relations;
 };
 
@@ -247,11 +228,10 @@ export const initDatabase = async () => {
       );
     `);
 
-    console.log('✅ Tablas listas');
+    console.log('Tablas listas');
   });
 };
 
-// Funciones helper para operaciones comunes
 export const dbHelpers = {
 
   saveManualAlbum: async (albumData) => {
@@ -263,13 +243,11 @@ export const dbHelpers = {
         throw new Error('El ID del artista es obligatorio');
       }
 
-      // Escapar strings para SQL (reemplazar comillas simples)
       const escapeSQL = (str) => {
         if (str === null || str === undefined) return 'NULL';
         return `'${String(str).replace(/'/g, "''")}'`;
       };
 
-      // Construir la query manualmente
       const deezer_id = albumData.deezer_id === null || albumData.deezer_id === undefined
         ? 'NULL'
         : `'${String(albumData.deezer_id).replace(/'/g, "''")}'`;
@@ -303,23 +281,21 @@ export const dbHelpers = {
       console.log('📝 Query a ejecutar:', query);
 
       try {
-        // Ejecutar con execAsync (que no tiene el bug de null)
         await db.execAsync(query);
 
         // Obtener el último ID insertado
         const result = await db.getFirstAsync('SELECT last_insert_rowid() as id');
-        console.log('✅ Álbum guardado con ID:', result.id);
+        console.log('Álbum guardado con ID:', result.id);
         return result.id;
 
       } catch (error) {
-        console.error('❌ Error en saveManualAlbum:', error);
-        console.error('   Query que falló:', query);
+        console.error('Error en saveManualAlbum:', error);
+        console.error(' Query que falló:', query);
         throw error;
       }
     });
   },
 
-  // Canciones - Versión simplificada para guardado manual
   saveManualTrack: async (trackData) => {
     return executeDBOperation(async (db) => {
       const { album_id, title, track_number, duration } = trackData;
@@ -338,7 +314,6 @@ export const dbHelpers = {
     return executeDBOperation(async (db) => {
       const now = new Date().toISOString();
 
-      // Asegurar que deezer_id sea string
       const deezer_id = artistData.deezer_id ? artistData.deezer_id.toString() : null;
 
       if (!deezer_id) {
@@ -381,19 +356,17 @@ export const dbHelpers = {
     });
   },
 
-  // Álbumes - Versión completa para Deezer
   saveAlbum: async (albumData, artistId) => {
     return executeDBOperation(async (db) => {
       const now = new Date().toISOString();
       const deezer_id = albumData.id ? albumData.id.toString() : null;
 
-      // Procesar géneros (JSON)
       let genres = null;
       if (albumData.genres?.data) {
         try {
           genres = JSON.stringify(albumData.genres.data);
         } catch (e) {
-          console.log('⚠️ Error procesando géneros:', e);
+          console.log(' Error procesando géneros:', e);
         }
       }
 
@@ -475,7 +448,6 @@ export const dbHelpers = {
     });
   },
 
-  // Canciones - Versión completa para Deezer
   saveTracks: async (tracksData, albumId) => {
     return executeDBOperation(async (db) => {
       const now = new Date().toISOString();
@@ -512,10 +484,8 @@ export const dbHelpers = {
     });
   },
 
-  // 🔴 HELPER: Eliminar álbum y limpiar artistas huérfanos
   deleteAlbumAndCleanup: async (albumId) => {
     return executeTransaction(async (db) => {
-      // Obtener info del álbum (para posibles limpiezas futuras)
       const album = await db.getFirstAsync(
         'SELECT artist_id FROM albums WHERE id = ?',
         [albumId]
@@ -523,10 +493,8 @@ export const dbHelpers = {
 
       const artistId = album?.artist_id;
 
-      // Eliminar el álbum
       await db.runAsync('DELETE FROM albums WHERE id = ?', [albumId]);
 
-      // Verificar si el artista se quedó sin álbumes
       if (artistId) {
         const remainingAlbums = await db.getFirstAsync(
           'SELECT COUNT(*) as count FROM albums WHERE artist_id = ?',
@@ -534,9 +502,8 @@ export const dbHelpers = {
         );
 
         if (remainingAlbums?.count === 0) {
-          // Eliminar artista huérfano
           await db.runAsync('DELETE FROM artists WHERE id = ?', [artistId]);
-          console.log(`🧹 Artista ${artistId} eliminado (sin álbumes)`);
+          console.log(` Artista ${artistId} eliminado (sin álbumes)`);
         }
       }
 
@@ -544,7 +511,6 @@ export const dbHelpers = {
     });
   },
 
-  // Buscar álbumes por texto (para búsqueda)
   searchAlbums: async (searchText) => {
     return executeDBOperation(async (db) => {
       return await db.getAllAsync(
