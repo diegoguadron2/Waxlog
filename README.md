@@ -23,21 +23,21 @@ A personal music journal for Android. Track the albums you've listened to, are c
 <div align="center">
 <table>
   <tr>
-    <td><img src="assets\readme\IMG_20260313_125943.jpg.jpeg
+    <td><img src="[assets\readme\IMG_20260313_125943.jpg.jpeg](https://github.com/diegoguadron2/Waxlog/blob/311489e0951acc6cb314a8eed1c6f52cb1ef2139/assets/readme/IMG_20260313_125943.jpg.jpeg)
 " width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130008.jpg.jpeg
+    <td><img src="[assets\readme\IMG_20260313_130008.jpg.jpeg](https://github.com/diegoguadron2/Waxlog/blob/311489e0951acc6cb314a8eed1c6f52cb1ef2139/assets/readme/IMG_20260313_130008.jpg.jpeg)
 " width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130028.jpg.jpeg
+    <td><img src="[assets\readme\IMG_20260313_130028.jpg.jpeg](https://github.com/diegoguadron2/Waxlog/blob/311489e0951acc6cb314a8eed1c6f52cb1ef2139/assets/readme/IMG_20260313_130028.jpg.jpeg)
 " width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130051.jpg.jpeg
+    <td><img src="[assets\readme\IMG_20260313_130051.jpg.jpeg](https://github.com/diegoguadron2/Waxlog/blob/311489e0951acc6cb314a8eed1c6f52cb1ef2139/assets/readme/IMG_20260313_130051.jpg.jpeg)
 " width="160"/></td>
   </tr>
   <tr>
-    <td><img src="assets\readme\IMG_20260313_130111.jpg.jpeg
+    <td><img src="[assets\readme\IMG_20260313_130111.jpg.jpeg](https://github.com/diegoguadron2/Waxlog/blob/311489e0951acc6cb314a8eed1c6f52cb1ef2139/assets/readme/IMG_20260313_130111.jpg.jpeg)
 " width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130129.jpg.jpeg
+    <td><img src="[assets\readme\IMG_20260313_130129.jpg.jpeg](https://github.com/diegoguadron2/Waxlog/blob/311489e0951acc6cb314a8eed1c6f52cb1ef2139/assets/readme/IMG_20260313_130129.jpg.jpeg)
 " width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130224.jpg.jpeg" width="160"/></td>
+    <td><img src="[assets\readme\IMG_20260313_130224.jpg.jpeg](https://github.com/diegoguadron2/Waxlog/blob/311489e0951acc6cb314a8eed1c6f52cb1ef2139/assets/readme/IMG_20260313_130224.jpg.jpeg)" width="160"/></td>
     <td></td>
   </tr>
 </table>
