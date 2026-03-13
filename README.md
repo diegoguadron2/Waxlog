@@ -23,7 +23,7 @@ A personal music journal for Android. Track the albums you've listened to, are c
 <div align="center">
 <table>
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/479e5baa-40cb-4d63-9f3f-bb86363c2727
+    <td><img src="https://github.com/diegoguadron2/Waxlog/blob/732cc6dfa1cdabcbb9effbfc25e80534844fb1c2/assets/readme/IMG_20260313_125943.jpg.jpeg
 " width="160"/></td>
     <td><img src="assets\readme\IMG_20260313_130008.jpeg
 " width="160"/></td>
