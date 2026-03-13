@@ -37,7 +37,7 @@ A personal music journal for Android. Track the albums you've listened to, are c
 "/></td>
     <td><img src="assets\readme\IMG_20260313_130129.jpg.jpeg
 " width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130224.jpg.jpeg" width="160"/></td>
+    <td><img src="assets\readme\IMG_20260313_130224.jpeg" width="160"/></td>
     <td></td>
   </tr>
 </table>
