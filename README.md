@@ -1,16 +1,16 @@
-# 🎵 WaxLog
+#  WaxLog
 
 A personal music journal for Android. Track the albums you've listened to, are currently listening to, or want to listen to — with per-track ratings, statistics, and visual exploration by genre and artist.
 
-## 📲 Download
+##  Download
 
-[![Build APK](https://github.com/Fosalud/Waxlog/actions/workflows/build.yml/badge.svg)](https://github.com/TU_USUARIO/waxlog/actions/workflows/build.yml)
+[![Build APK](https://github.com/diegoguadron2/Waxlog/actions/workflows/build.yml/badge.svg)](https://github.com/TU_USUARIO/waxlog/actions/workflows/build.yml)
 
-> **[⬇️ Download latest APK](https://expo.dev/accounts/Fosalud/projects/waxlog/builds)**
+> **[⬇️ Download latest APK](https://expo.dev/accounts/diegoguadron2/projects/waxlog/builds)**
 
 ---
 
-## ✨ Features
+##  Features
 
 - **Personal library** — organize albums by status: listened, listening, or want to listen
 - **Per-track ratings** — rate each song individually with automatic album average
@@ -22,7 +22,7 @@ A personal music journal for Android. Track the albums you've listened to, are c
 - **Search** — find albums on Deezer or search within your local library
 - **Backup & Restore** — export and import your entire collection as a JSON file
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Technology | Purpose |
 |---|---|
@@ -34,11 +34,17 @@ A personal music journal for Android. Track the albums you've listened to, are c
 | Deezer API | Album and artist metadata |
 | EAS Build | Cloud APK compilation |
 
-## 📸 Screenshots
+##  Screenshots
 
-<!-- Add screenshots here -->
+![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_125943.jpg.jpeg)
+![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130008.jpg.jpeg)
+![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130028.jpg.jpeg)
+![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130051.jpg.jpeg)
+![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130111.jpg.jpeg)
+![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130129.jpg.jpeg)
+![image alt](https://github.com/diegoguadron2/Waxlog/blob/b0d49db517f72395c7ee592333e1645aeee71864/IMG_20260313_130224.jpg.jpeg)
 
-## 🚀 Run locally
+##  Run locally
 
 ```bash
 # Clone the repo
