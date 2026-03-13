@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎵 WaxLog
+# WaxLog
 
 A personal music journal for Android. Track the albums you've listened to, are currently listening to, or want to listen to — with per-track ratings, statistics, and visual exploration by genre and artist.
 
@@ -12,7 +12,7 @@ A personal music journal for Android. Track the albums you've listened to, are c
 &nbsp;
 ![SQLite](https://img.shields.io/badge/SQLite-07405E?style=flat&logo=sqlite&logoColor=white)
 
-### [⬇️ Download latest APK](https://expo.dev/accounts/diegoguadron2/projects/waxlog/builds)
+### [⬇️ Download latest APK](https://github.com/diegoguadron2/Waxlog/releases/tag/Estable)
 
 </div>
 
