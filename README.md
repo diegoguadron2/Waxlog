@@ -21,27 +21,13 @@ A personal music journal for Android. Track the albums you've listened to, are c
 ## 📸 Screenshots
 
 <div align="center">
-<table>
-  <tr>
-    <td><img src="https://github.com/diegoguadron2/Waxlog/blob/732cc6dfa1cdabcbb9effbfc25e80534844fb1c2/assets/readme/IMG_20260313_125943.jpg.jpeg
-" width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130008.jpeg
-" width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130028.jpeg
-" width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130051.jpeg
-" width="160"/></td>
-  </tr>
-  <tr>
-    <td><img src="assets\readme\IMG_20260313_130111.jpg.jpeg
-"/></td>
-    <td><img src="assets\readme\IMG_20260313_130129.jpg.jpeg
-" width="160"/></td>
-    <td><img src="assets\readme\IMG_20260313_130224.jpeg" width="160"/></td>
-    <td></td>
-  </tr>
-</table>
-</div>
+![Image](https://github.com/user-attachments/assets/3c13dafe-3294-4bfa-b529-08542d172efc)
+![Image](https://github.com/user-attachments/assets/c919d2ef-c989-44ad-999c-64580e00cb87)
+![Image](https://github.com/user-attachments/assets/4286aa39-43a4-494e-b493-632c614b9e52)
+![Image](https://github.com/user-attachments/assets/89b38883-cced-4db2-b7a5-0a16f809a371)
+![Image](https://github.com/user-attachments/assets/e3d34ca4-5b9a-434c-bee9-c190658bfc32)
+![Image](https://github.com/user-attachments/assets/0d4c0992-5604-4fd1-8f38-498a1d2a9193)
+![Image](https://github.com/user-attachments/assets/4281c9c9-7724-46c7-b1d5-9f220334af15)</div>
 
 ---
 
