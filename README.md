@@ -23,20 +23,21 @@ A personal music journal for Android. Track the albums you've listened to, are c
 <div align="center">
 <table>
   <tr>
-    <td>![Image](https://github.com/user-attachments/assets/479e5baa-40cb-4d63-9f3f-bb86363c2727)</td>
-    <td><img src="assets/readme/IMG_20260313_130008.jpg.jpeg
+    <td><img src="[assets\readme\IMG_20260313_125943.jpeg](https://github.com/user-attachments/assets/479e5baa-40cb-4d63-9f3f-bb86363c2727)
 " width="160"/></td>
-    <td><img src="assets/readme/IMG_20260313_130028.jpg.jpeg
+    <td><img src="assets\readme\IMG_20260313_130008.jpeg
 " width="160"/></td>
-    <td><img src="assets/readme/IMG_20260313_130051.jpg.jpeg
+    <td><img src="assets\readme\IMG_20260313_130028.jpeg
+" width="160"/></td>
+    <td><img src="assets\readme\IMG_20260313_130051.jpeg
 " width="160"/></td>
   </tr>
   <tr>
-    <td><img src="assets/readme/IMG_20260313_130111.jpg.jpeg
+    <td><img src="assets\readme\IMG_20260313_130111.jpg.jpeg
+"/></td>
+    <td><img src="assets\readme\IMG_20260313_130129.jpg.jpeg
 " width="160"/></td>
-    <td><img src="assets/readme/IMG_20260313_130129.jpg.jpeg
-" width="160"/></td>
-    <td><img src="assets/readme/IMG_20260313_130224.jpg.jpeg" width="160"/></td>
+    <td><img src="assets\readme\IMG_20260313_130224.jpg.jpeg" width="160"/></td>
     <td></td>
   </tr>
 </table>
