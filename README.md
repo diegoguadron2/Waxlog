@@ -20,15 +20,6 @@ A personal music journal for Android. Track the albums you've listened to, are c
 
 ## 📸 Screenshots
 
-![Image]()
-![Image]()
-![Image]()
-![Image]()
-![Image]()
-![Image]()
-![Image]()
-
-
 <div align="center">
 <table>
   <tr>
@@ -39,7 +30,7 @@ A personal music journal for Android. Track the albums you've listened to, are c
   </tr>
   <tr>
     <td><img src="https://github.com/user-attachments/assets/e3d34ca4-5b9a-434c-bee9-c190658bfc32" width="160"/></td>
-    <td><img src="https://github.com/user-attachments/assets/4281c9c9-7724-46c7-b1d5-9f220334af15" width="160"/></td>
+    <td><img src="https://github.com/user-attachments/assets/0d4c0992-5604-4fd1-8f38-498a1d2a9193" width="160"/></td>
     <td><img src="https://github.com/user-attachments/assets/4281c9c9-7724-46c7-b1d5-9f220334af15" width="160"/></td>
     <td></td>
   </tr>
