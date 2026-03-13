@@ -13,21 +13,9 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import ImageColors from 'react-native-image-colors';
 import { executeDBOperation } from '../database/Index';
-import { useFocusEffect } from '@react-navigation/native';
-import { tabBarStyle } from '../navigation/AppNavigator';
+import { getRatingColor } from '../utils/colors';
 
 const { width } = Dimensions.get('window');
-
-// Colores para calificaciones
-const getRatingColor = (rating) => {
-  if (!rating) return '#9CA3AF';
-  const colors = [
-    '#fc3a3a', '#f56c45', '#ffa457', '#ffcb52', '#faed52',
-    '#e1ff47', '#b1fa6b', '#6ad46a', '#3ecf3e', '#28bf28',
-  ];
-  const index = Math.min(9, Math.max(0, Math.floor(rating) - 1));
-  return colors[index];
-};
 
 //  COMPONENTE SKELETON PARA HOME SCREEN
 const HomeSkeleton = () => {
@@ -71,9 +59,8 @@ const HomeSkeleton = () => {
           <View style={styles.skeletonSectionCount} />
         </View>
         <View style={styles.mosaicContainer}>
-          {[1, 2, 3, 4, 5].map((row) => (
+          {[1, 2, 3, 4].map((row) => (
             <View key={row} style={styles.mosaicRow}>
-              <View style={styles.skeletonMosaicItem} />
               <View style={styles.skeletonMosaicItem} />
               <View style={styles.skeletonMosaicItem} />
             </View>
@@ -117,7 +104,6 @@ export default function HomeScreen({ navigation }) {
 
     try {
       await executeDBOperation(async (db) => {
-        console.log('🏠 Cargando datos de HomeScreen...');
         
         // 1. Cargar estadísticas generales
         const stats = await db.getFirstAsync(`
@@ -138,7 +124,6 @@ export default function HomeScreen({ navigation }) {
             to_listen: stats?.to_listen || 0,
             favorites: stats?.favorites || 0
           });
-          console.log('📊 Estadísticas cargadas:', stats);
         }
 
         // 2. Cargar álbum destacado (aleatorio)
@@ -153,7 +138,6 @@ export default function HomeScreen({ navigation }) {
 
         if (featured && mountedRef.current) {
           setFeaturedAlbum(featured);
-          console.log('⭐ Álbum destacado cargado:', featured.title);
 
           // Extraer color de la portada
           const color = await getAlbumColor(featured);
@@ -180,11 +164,10 @@ export default function HomeScreen({ navigation }) {
 
         if (mountedRef.current) {
           setMosaicAlbums(albums);
-          console.log('🖼️ Mosaico cargado:', albums.length, 'álbumes');
         }
       });
     } catch (error) {
-      console.error('❌ Error cargando datos:', error);
+      if (__DEV__) console.error('❌ Error cargando datos:', error);
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -213,7 +196,7 @@ export default function HomeScreen({ navigation }) {
           return '#000000';
       }
     } catch (error) {
-      console.error('Error extrayendo color:', error);
+      if (__DEV__) console.error('Error extrayendo color:', error);
       return '#000000';
     }
   };
@@ -223,22 +206,13 @@ export default function HomeScreen({ navigation }) {
     loadData();
   }, [loadData]);
 
-  // Restaurar tabBarStyle al enfocar
-  useFocusEffect(
-    useCallback(() => {
-      navigation.getParent()?.setOptions({
-        tabBarStyle: tabBarStyle
-      });
-    }, [navigation])
-  );
-
   // Renderizar mosaico
   const renderMosaic = () => {
     if (mosaicAlbums.length === 0) return null;
 
     const rows = [];
-    for (let i = 0; i < mosaicAlbums.length; i += 3) {
-      const rowAlbums = mosaicAlbums.slice(i, i + 3);
+    for (let i = 0; i < mosaicAlbums.length; i += 2) {
+      const rowAlbums = mosaicAlbums.slice(i, i + 2);
       rows.push(
         <View key={i} style={styles.mosaicRow}>
           {rowAlbums.map((album) => (
@@ -274,22 +248,9 @@ export default function HomeScreen({ navigation }) {
                   color="white"
                 />
               </View>
-
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)']}
-                style={styles.mosaicGradient}
-              />
-              <View style={styles.mosaicOverlay}>
-                <Text style={styles.mosaicTitle} numberOfLines={1}>
-                  {album.title}
-                </Text>
-                <Text style={styles.mosaicArtist} numberOfLines={1}>
-                  {album.artist_name}
-                </Text>
-              </View>
             </TouchableOpacity>
           ))}
-          {rowAlbums.length < 3 && (
+          {rowAlbums.length < 2 && (
             <View style={[styles.mosaicItem, styles.mosaicPlaceholder]} />
           )}
         </View>
@@ -373,13 +334,37 @@ export default function HomeScreen({ navigation }) {
                 contentFit="cover"
               />
 
+              {/* Mejora 1: gradiente más suave, empieza más arriba y se desvanece gradualmente */}
               <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
+                colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.92)']}
                 style={styles.featuredGradient}
-                locations={[0.3, 0.7, 1]}
+                locations={[0.2, 0.45, 0.72, 1]}
               />
 
               <View style={styles.featuredOverlay}>
+                {/* Mejora 2: badge de estado sutil arriba a la izquierda, como chip pequeño */}
+                <View style={styles.featuredStateRow}>
+                  {(() => {
+                    const STATE_CONFIG = {
+                      listened:  { label: 'Escuchado',    icon: 'checkmark-circle', color: '#4ADE80' },
+                      listening: { label: 'Escuchando',   icon: 'headset',          color: '#60A5FA' },
+                      to_listen: { label: 'Por escuchar', icon: 'time',             color: '#FBBF24' },
+                    };
+                    const cfg = STATE_CONFIG[featuredAlbum.state];
+                    return cfg ? (
+                      <View style={[styles.featuredStateChip, { borderColor: cfg.color + '60' }]}>
+                        <Ionicons name={cfg.icon} size={11} color={cfg.color} />
+                        <Text style={[styles.featuredStateText, { color: cfg.color }]}>{cfg.label}</Text>
+                      </View>
+                    ) : null;
+                  })()}
+                  {featuredAlbum.is_favorite === 1 && (
+                    <View style={styles.featuredFavChip}>
+                      <Ionicons name="star" size={11} color="#FFD700" />
+                    </View>
+                  )}
+                </View>
+
                 <View style={styles.featuredHeader}>
                   <View style={styles.featuredTitleContainer}>
                     <Text style={styles.featuredTitle} numberOfLines={2}>
@@ -406,35 +391,29 @@ export default function HomeScreen({ navigation }) {
                       {featuredAlbum.user_description}
                     </Text>
                   </View>
-                ) : (
-                  <View style={styles.featuredBadgeRow}>
-                    <View style={[styles.featuredBadge, { backgroundColor: featuredAlbum.state === 'listened' ? '#4ADE80' : featuredAlbum.state === 'listening' ? '#60A5FA' : '#FBBF24' }]}>
-                      <Ionicons
-                        name={featuredAlbum.state === 'listened' ? 'checkmark' : featuredAlbum.state === 'listening' ? 'headset' : 'time'}
-                        size={12}
-                        color="white"
-                      />
-                      <Text style={styles.featuredBadgeText}>
-                        {featuredAlbum.state === 'listened' ? 'Escuchado' : featuredAlbum.state === 'listening' ? 'Escuchando' : 'Por escuchar'}
+                ) : null}
+
+                {/* Mejora 3: ocultar "0 canciones", mostrar tipo de álbum en su lugar */}
+                <View style={styles.featuredFooter}>
+                  {featuredAlbum.record_type && (
+                    <View style={styles.featuredMeta}>
+                      <Ionicons name="disc-outline" size={12} color="rgba(255,255,255,0.5)" />
+                      <Text style={styles.featuredMetaText}>
+                        {featuredAlbum.record_type.charAt(0).toUpperCase() + featuredAlbum.record_type.slice(1)}
                       </Text>
                     </View>
-
-                    {featuredAlbum.is_favorite === 1 && (
-                      <View style={[styles.featuredBadge, { backgroundColor: 'rgba(255,215,0,0.2)' }]}>
-                        <Ionicons name="star" size={12} color="#FFD700" />
-                        <Text style={[styles.featuredBadgeText, { color: '#FFD700' }]}>Favorito</Text>
+                  )}
+                  {featuredAlbum.total_tracks > 0 && (
+                    <>
+                      {featuredAlbum.record_type && <Text style={styles.featuredMetaDot}>•</Text>}
+                      <View style={styles.featuredMeta}>
+                        <Ionicons name="musical-notes" size={12} color="rgba(255,255,255,0.5)" />
+                        <Text style={styles.featuredMetaText}>
+                          {featuredAlbum.total_tracks} canciones
+                        </Text>
                       </View>
-                    )}
-                  </View>
-                )}
-
-                <View style={styles.featuredFooter}>
-                  <View style={styles.featuredMeta}>
-                    <Ionicons name="musical-notes" size={12} color="rgba(255,255,255,0.5)" />
-                    <Text style={styles.featuredMetaText}>
-                      {featuredAlbum.total_tracks || 0} canciones
-                    </Text>
-                  </View>
+                    </>
+                  )}
                   {featuredAlbum.release_date && (
                     <>
                       <Text style={styles.featuredMetaDot}>•</Text>
@@ -689,6 +668,37 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: '500',
   },
+  // Chips nuevos sutiles para estado y favorito
+  featuredStateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 6,
+  },
+  featuredStateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  featuredStateText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  featuredFavChip: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   featuredFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -721,12 +731,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   mosaicItem: {
-    width: (width - 48) / 3,
+    width: (width - 52) / 2,
     aspectRatio: 1,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.15)',
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -892,7 +902,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
   },
   skeletonMosaicItem: {
-    width: (width - 48) / 3,
+    width: (width - 52) / 2,
     aspectRatio: 1,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 16,

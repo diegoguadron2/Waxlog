@@ -79,6 +79,7 @@ export const useAlbumsByState = (state) => {
             ar.name as artist_name,
             ar.deezer_id as artist_deezer_id,
             COUNT(t.id) as total_tracks,
+            COUNT(CASE WHEN t.rating IS NOT NULL THEN 1 END) as rated_tracks,
             AVG(t.rating) as average_rating
           FROM albums a
           LEFT JOIN artists ar ON a.artist_id = ar.id
@@ -90,11 +91,11 @@ export const useAlbumsByState = (state) => {
 
         if (mountedRef.current) {
           setAlbums(albumsData);
-          console.log(`✅ Cargados ${albumsData.length} álbumes de estado "${state}"`);
+          if (__DEV__) console.log(`✅ Cargados ${albumsData.length} álbumes de estado "${state}"`);
         }
       });
     } catch (error) {
-      console.error(`Error cargando álbumes de estado ${state}:`, error);
+      if (__DEV__) console.error(`Error cargando álbumes de estado ${state}:`, error);
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -116,14 +117,9 @@ export const useAlbumsByState = (state) => {
   useFocusEffect(
     useCallback(() => {
       const now = Date.now();
-      if (now - lastFocusTimeRef.current < 2000) {
-        console.log(`⏱️ ${state} recarga ignorada (throttle)`);
-        return;
-      }
+      if (now - lastFocusTimeRef.current < 2000) return;
       lastFocusTimeRef.current = now;
-
-      console.log(`📱 ${state}Screen enfocada - actualizando datos...`);
-      refreshData().catch(console.error);
+      refreshData().catch(e => { if (__DEV__) console.error(e); });
 
       return () => {};
     }, [refreshData, state])
@@ -140,15 +136,18 @@ export const useAlbumsByState = (state) => {
   // Cambiar ordenamiento
   const handleSortChange = useCallback((optionId) => {
     if (optionId === sortBy) return;
-    console.log(`🔄 Cambiando orden a: ${optionId}`);
     setSortBy(optionId);
   }, [sortBy]);
 
-  // Efecto para recargar cuando cambia el ordenamiento
+  const isMountedSortRef = useRef(false);
+
+  // Efecto para recargar cuando cambia el ordenamiento (no al montar)
   useEffect(() => {
-    if (!loading) {
-      loadData();
+    if (!isMountedSortRef.current) {
+      isMountedSortRef.current = true;
+      return;
     }
+    loadData();
   }, [sortBy]);
 
   return {

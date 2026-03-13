@@ -11,20 +11,27 @@ const TrackItem = ({
   isExpanded,
   onPress,
   onToggleComment,
-  showDiskNumber, // 👈 NUEVO
-  currentDisk     // 👈 NUEVO
+  showDiskNumber,
+  currentDisk,
+  dominantColor,
 }) => {
   if (!track) return null;
 
-  // Usar displayNumber que viene del grupo o el track_number
   const trackNumber = track.displayNumber || track.track_number || index + 1;
-
-  // 👇 Mostrar formato "disco-track" si es necesario
   const displayText = trackNumber;
 
   const hasRating = track.rating && track.rating > 0;
-  const ratingColor = hasRating ? getRatingColor(track.rating) : '#4B5563';
+  const ratingColor = hasRating ? getRatingColor(track.rating) : null;
   const formattedRating = hasRating ? formatRating(track.rating) : null;
+
+  // Color del borde: rating color si tiene nota, dominantColor sutil si no
+  const borderColor = hasRating
+    ? ratingColor
+    : (dominantColor ? dominantColor + '50' : 'rgba(255,255,255,0.1)');
+
+  const bgColor = hasRating
+    ? ratingColor + '08'
+    : (dominantColor ? dominantColor + '08' : 'transparent');
 
   const handlePress = () => {
     if (isSaved) {
@@ -46,15 +53,15 @@ const TrackItem = ({
       style={[
         styles.container,
         {
-          borderColor: ratingColor,
-          backgroundColor: hasRating ? (ratingColor + '08') : 'transparent',
+          borderColor,
+          backgroundColor: bgColor,
         }
       ]}
       activeOpacity={0.7}
     >
       <View style={styles.header}>
         <Text style={[styles.trackNumber, hasRating && { color: ratingColor }]}>
-          {displayText} {/* 👈 USAMOS displayText */}
+          {displayText}
         </Text>
 
         <Text style={styles.title} numberOfLines={10}>

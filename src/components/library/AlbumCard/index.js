@@ -74,6 +74,13 @@ const AlbumCard = ({
   const ratingColor = showRating ? getRatingColor(album.average_rating) : '#4B5563';
   const coverSource = album.cover_local || album.cover;
 
+  // Progreso de escucha (solo en Escuchando)
+  const showProgress = activeTab === 'listening' && album.total_tracks > 0;
+  const ratedTracks = album.rated_tracks || 0;
+  const totalTracks = album.total_tracks || 0;
+  const progressRatio = showProgress ? ratedTracks / totalTracks : 0;
+  const PROGRESS_COLOR = '#60A5FA';
+
   // Animación de entrada
   const fadeAnim = useSharedValue(0);
   const translateY = useSharedValue(20);
@@ -153,6 +160,13 @@ const AlbumCard = ({
                   </Text>
                 </View>
               )}
+
+              {/* Barra de progreso — solo en Escuchando */}
+              {showProgress && (
+                <View style={styles.progressBarContainer}>
+                  <View style={[styles.progressBarFill, { width: `${progressRatio * 100}%` }]} />
+                </View>
+              )}
             </View>
           </View>
         </PressAnimation>
@@ -205,9 +219,18 @@ const AlbumCard = ({
               <View style={styles.listTrackInfo}>
                 <Ionicons name="musical-notes" size={12} color="rgba(255,255,255,0.6)" />
                 <Text style={styles.listTrackCount}>
-                  {album.total_tracks || 0} canciones
+                  {showProgress
+                    ? `${ratedTracks}/${totalTracks} calificadas`
+                    : `${totalTracks} ${totalTracks === 1 ? 'canción' : 'canciones'}`
+                  }
                 </Text>
               </View>
+              {/* Mini barra en lista */}
+              {showProgress && (
+                <View style={styles.listProgressBarContainer}>
+                  <View style={[styles.listProgressBarFill, { width: `${progressRatio * 100}%` }]} />
+                </View>
+              )}
             </View>
 
             {showRating && (
@@ -224,9 +247,33 @@ const AlbumCard = ({
   );
 };
 
-// Los estilos se mantienen igual
 const styles = StyleSheet.create({
-  // ... (todos tus estilos existentes, sin cambios)
+  // Barras de progreso
+  progressBarContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: 'rgba(96,165,250,0.2)',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#60A5FA',
+    borderRadius: 2,
+  },
+  listProgressBarContainer: {
+    height: 3,
+    backgroundColor: 'rgba(96,165,250,0.2)',
+    borderRadius: 2,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  listProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#60A5FA',
+    borderRadius: 2,
+  },
   gridCard: {
     borderRadius: 12,
     overflow: 'hidden',

@@ -15,27 +15,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ImageColors from 'react-native-image-colors';
 import { executeDBOperation } from '../database/Index';
 import { useFocusEffect } from '@react-navigation/native';
-import { tabBarStyle } from '../navigation/AppNavigator';
+import { getRatingColor } from '../utils/colors';
 
-const { width, height } = Dimensions.get('window');
-
-// Colores pastel del 1 al 10
-const getRatingColor = (rating) => {
-  if (!rating) return '#9CA3AF';
-  const colors = [
-    '#fc3a3a', '#f56c45', '#ffa457', '#ffcb52', '#faed52',
-    '#e1ff47', '#b1fa6b', '#6ad46a', '#3ecf3e', '#28bf28',
-  ];
-  const index = Math.min(9, Math.max(0, Math.floor(rating) - 1));
-  return colors[index];
+const TAB_BAR_STYLE = {
+  position: 'absolute',
+  backgroundColor: 'rgba(0,0,0,0.8)',
+  borderTopWidth: 0,
+  elevation: 0,
+  height: 70,
+  paddingBottom: 10,
+  paddingTop: 10,
 };
 
-// Formatear nota
-const formatRating = (rating) => {
-  if (!rating) return '-';
-  if (rating === 10) return '10';
-  return rating.toFixed(1);
-};
+const { width } = Dimensions.get('window');
 
 // Componente Skeleton para listas
 const ListsSkeleton = () => (
@@ -193,9 +185,7 @@ export default function ListsScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      navigation.getParent()?.setOptions({
-        tabBarStyle: tabBarStyle
-      });
+      navigation.getParent()?.setOptions({ tabBarStyle: TAB_BAR_STYLE });
     }, [navigation])
   );
 
@@ -224,7 +214,7 @@ export default function ListsScreen({ navigation }) {
           return '#000000';
       }
     } catch (error) {
-      console.error('Error extrayendo color:', error);
+      if (__DEV__) console.error('Error extrayendo color:', error);
       return '#000000';
     }
   };
@@ -252,7 +242,7 @@ export default function ListsScreen({ navigation }) {
         setBackgroundColor('#1a1a1a');
       }
     } catch (error) {
-      console.error('Error cargando álbum aleatorio:', error);
+      if (__DEV__) console.error('Error cargando álbum aleatorio:', error);
       setBackgroundColor('#1a1a1a');
     }
   };
@@ -383,7 +373,7 @@ export default function ListsScreen({ navigation }) {
 
       setLists(result);
     } catch (error) {
-      console.error('Error cargando listas:', error);
+      if (__DEV__) console.error('Error cargando listas:', error);
     }
   };
 
@@ -464,7 +454,7 @@ export default function ListsScreen({ navigation }) {
 
       setStats(result);
     } catch (error) {
-      console.error('Error cargando estadísticas:', error);
+      if (__DEV__) console.error('Error cargando estadísticas:', error);
     }
   };
 
@@ -480,7 +470,7 @@ export default function ListsScreen({ navigation }) {
         loadStats()
       ]);
     } catch (error) {
-      console.error('Error cargando datos:', error);
+      if (__DEV__) console.error('Error cargando datos:', error);
     } finally {
       setLoading(false);
     }
@@ -494,34 +484,42 @@ export default function ListsScreen({ navigation }) {
 
   const renderAlbumCard = (album) => {
     if (!album || !album.cover) return null;
+    const rating = album.avg_rating || album.average_rating;
+    const ratingColor = rating ? getRatingColor(rating) : null;
 
     return (
       <TouchableOpacity
         key={album.id}
         style={styles.albumCard}
         onPress={() => navigation.navigate('Album', {
-          album: {
-            id: album.deezer_id,
-            title: album.title,
-            cover: album.cover
-          },
+          album: { id: album.deezer_id, title: album.title, cover: album.cover },
           artistName: album.artist_name,
           artistId: album.artist_deezer_id,
-          refresh: true
+          refresh: true,
         })}
       >
-        <Image
-          source={{ uri: album.cover }}
-          style={styles.albumImage}
-          contentFit="cover"
-        />
+        <View style={{ position: 'relative' }}>
+          <Image
+            source={{ uri: album.cover }}
+            style={styles.albumImage}
+            contentFit="cover"
+          />
+          {ratingColor && (
+            <View style={[styles.albumRatingBadge, { backgroundColor: ratingColor + '25', borderColor: ratingColor + '70' }]}>
+              <Text style={[styles.albumRatingText, { color: ratingColor }]}>
+                {parseFloat(rating).toFixed(1)}
+              </Text>
+            </View>
+          )}
+          {album.is_favorite === 1 && (
+            <View style={styles.albumFavBadge}>
+              <Ionicons name="star" size={9} color="#FFD700" />
+            </View>
+          )}
+        </View>
         <View style={styles.albumInfo}>
-          <Text style={styles.albumTitle} numberOfLines={1}>
-            {album.title}
-          </Text>
-          <Text style={styles.albumArtist} numberOfLines={1}>
-            {album.artist_name}
-          </Text>
+          <Text style={styles.albumTitle} numberOfLines={1}>{album.title}</Text>
+          <Text style={styles.albumArtist} numberOfLines={1}>{album.artist_name}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -728,40 +726,37 @@ export default function ListsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.tabContent, styles.statsTabContent]}
       >
-        {/* Tarjetas de estadísticas principales */}
+        {/* Tarjetas de estadísticas — grid 2 columnas */}
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
-            <Ionicons name="people" size={24} color="#60A5FA" />
+            <Ionicons name="people" size={22} color="#60A5FA" />
             <Text style={styles.statValue}>{stats.totalArtists}</Text>
             <Text style={styles.statLabel}>Artistas</Text>
           </View>
           <View style={styles.statCard}>
-            <Ionicons name="albums" size={24} color="#4ADE80" />
+            <Ionicons name="albums" size={22} color="#4ADE80" />
             <Text style={styles.statValue}>{stats.totalAlbums}</Text>
             <Text style={styles.statLabel}>Álbumes</Text>
           </View>
           <View style={styles.statCard}>
-            <Ionicons name="musical-notes" size={24} color="#FBBF24" />
+            <Ionicons name="musical-notes" size={22} color="#FBBF24" />
             <Text style={styles.statValue}>{stats.totalTracks}</Text>
             <Text style={styles.statLabel}>Canciones</Text>
           </View>
-        </View>
-
-        <View style={styles.statsGrid}>
           <View style={styles.statCard}>
-            <Ionicons name="star" size={24} color="#F472B6" />
+            <Ionicons name="star" size={22} color="#F472B6" />
             <Text style={styles.statValue}>{stats.avgRating}</Text>
             <Text style={styles.statLabel}>Promedio</Text>
           </View>
           <View style={styles.statCard}>
-            <Ionicons name="checkmark-circle" size={24} color="#A78BFA" />
+            <Ionicons name="checkmark-circle" size={22} color="#A78BFA" />
             <Text style={styles.statValue}>{stats.totalRatedTracks}</Text>
             <Text style={styles.statLabel}>Calificadas</Text>
           </View>
           <View style={styles.statCard}>
-            <Ionicons name="checkmark-done" size={24} color="#F87171" />
+            <Ionicons name="checkmark-done" size={22} color="#F87171" />
             <Text style={styles.statValue}>{stats.completionRate}%</Text>
-            <Text style={styles.statLabel}>Completitud</Text>
+            <Text style={styles.statLabel}>Completas</Text>
           </View>
         </View>
 
@@ -1069,9 +1064,32 @@ const styles = StyleSheet.create({
   albumImage: {
     width: 120,
     height: 120,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  albumRatingBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 8,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+  },
+  albumRatingText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  albumFavBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 8,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: '#FFD700',
   },
   albumInfo: {
     marginTop: 8,
@@ -1088,16 +1106,18 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 16,
   },
   statCard: {
-    flex: 1,
+    width: '48%',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 4,
+    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },

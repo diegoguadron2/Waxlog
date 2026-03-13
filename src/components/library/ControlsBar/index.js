@@ -10,16 +10,17 @@ const ControlsBar = ({
   sortLabel, 
   onSortPress,
   viewMode,
-  onViewModeChange
+  onViewModeChange,
+  accentColor = 'rgba(255,255,255,0.8)',
 }) => {
   return (
     <View style={styles.controlsBar}>
       <TouchableOpacity
-        style={styles.controlButton}
+        style={[styles.controlButton, { borderColor: accentColor + '30' }]}
         onPress={onSortPress}
       >
-        <Ionicons name="funnel-outline" size={18} color="rgba(255,255,255,0.8)" />
-        <Text style={styles.controlText}>
+        <Ionicons name="funnel-outline" size={18} color={accentColor} />
+        <Text style={[styles.controlText, { color: accentColor }]}>
           {sortLabel || 'Ordenar'}
         </Text>
       </TouchableOpacity>

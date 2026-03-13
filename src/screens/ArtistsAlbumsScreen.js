@@ -8,750 +8,519 @@ import {
   StyleSheet,
   Dimensions,
   TextInput,
-  ActivityIndicator,
+  ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { executeDBOperation } from '../database/Index';
-import { tabBarStyle } from '../navigation/AppNavigator';
+import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
+import { executeDBOperation } from '../database/Index';
+import { getRatingColor } from '../utils/colors';
 
 const { width } = Dimensions.get('window');
+const PADDING = 16;
+const GAP = 10;
+const CARD_WIDTH = (width - PADDING * 2 - GAP) / 2;
+const CARD_HEIGHT = CARD_WIDTH * 1.1;
 
-// Generar color pastel basado en string (para géneros)
-const getGenreColor = (genre) => {
-  if (!genre) return '#1a1a1a';
-
-  // Generar un hash simple del nombre
-  let hash = 0;
-  for (let i = 0; i < genre.length; i++) {
-    hash = genre.charCodeAt(i) + ((hash << 5) - hash);
-  }
-
-  // Colores pastel predefinidos
-  const pastelColors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-    '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71',
-    '#F1C40F', '#E74C3C', '#1ABC9C', '#9B59B6', '#34495E',
-    '#FF8C42', '#A8E6CF', '#FFD3B6', '#D4A5A5', '#9B59B6',
-  ];
-
-  // Usar el hash para seleccionar un color
-  const index = Math.abs(hash) % pastelColors.length;
-  return pastelColors[index];
-};
-
-// Componente Skeleton para carga
-const GenresSkeleton = () => (
-  <View style={styles.skeletonContainer}>
-    <View style={styles.skeletonHeader}>
-      <View style={styles.skeletonTitle} />
-      <View style={styles.skeletonSubtitle} />
+// ─── Skeleton ────────────────────────────────────────────────────────────────
+const Skeleton = () => (
+  <View style={sk.container}>
+    <View style={sk.header}>
+      <View style={sk.title} />
+      <View style={sk.subtitle} />
     </View>
-    <View style={styles.skeletonSearch} />
-    <View style={styles.skeletonStats}>
-      <View style={styles.skeletonStat} />
-      <View style={styles.skeletonStat} />
-      <View style={styles.skeletonStat} />
+    <View style={sk.search} />
+    <View style={sk.grid}>
+      {[1, 2, 3, 4, 5, 6].map(i => (
+        <View key={i} style={[sk.card, { width: CARD_WIDTH, height: CARD_HEIGHT }]} />
+      ))}
     </View>
-    {[1, 2, 3, 4, 5, 6].map((i) => (
-      <View key={i} style={styles.skeletonCard}>
-        <View style={styles.skeletonCardColor} />
-        <View style={styles.skeletonCardContent}>
-          <View style={styles.skeletonCardTitle} />
-          <View style={styles.skeletonCardSubtitle} />
-        </View>
-      </View>
-    ))}
   </View>
 );
 
+const sk = StyleSheet.create({
+  container: { flex: 1, paddingHorizontal: PADDING },
+  header: { paddingTop: 60, paddingBottom: 20 },
+  title: { width: 160, height: 38, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, marginBottom: 8 },
+  subtitle: { width: 220, height: 14, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 4 },
+  search: { height: 48, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, marginBottom: 16 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  card: { borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', marginBottom: GAP },
+});
+
+// ─── Card de género ───────────────────────────────────────────────────────────
+const GenreCard = ({ genre, isTop3, onPress }) => {
+  const hasImage = !!genre.coverImage;
+
+  return (
+    <TouchableOpacity
+      style={[styles.card, { width: CARD_WIDTH, height: CARD_HEIGHT }]}
+      onPress={() => onPress(genre)}
+      activeOpacity={0.82}
+    >
+      {/* Fondo: portada o color sólido */}
+      {hasImage ? (
+        <ImageBackground
+          source={{ uri: genre.coverImage }}
+          style={StyleSheet.absoluteFillObject}
+          imageStyle={{ borderRadius: 16 }}
+          blurRadius={0}
+        >
+          {/* Gradiente oscuro para legibilidad */}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.08)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
+            locations={[0, 0.5, 1]}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </ImageBackground>
+      ) : (
+        <LinearGradient
+          colors={[genre.color + 'CC', genre.color + '66']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      )}
+
+      {/* Badge top 3 */}
+      {isTop3 && (
+        <View style={styles.flameBadge}>
+          <Ionicons name="flame" size={11} color="#FF6B35" />
+        </View>
+      )}
+
+      {/* Rating promedio (esquina superior derecha) */}
+      {genre.avgRating > 0 && (
+        <View style={[styles.ratingBadge, { borderColor: getRatingColor(genre.avgRating) + '80' }]}>
+          <Text style={[styles.ratingText, { color: getRatingColor(genre.avgRating) }]}>
+            {genre.avgRating.toFixed(1)}
+          </Text>
+        </View>
+      )}
+
+      {/* Info abajo */}
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardName} numberOfLines={2}>{genre.name}</Text>
+        <View style={styles.cardMeta}>
+          <Ionicons name="albums" size={11} color="rgba(255,255,255,0.6)" />
+          <Text style={styles.cardCount}>
+            {genre.count} {genre.count === 1 ? 'álbum' : 'álbumes'}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── Pantalla principal ───────────────────────────────────────────────────────
 export default function ArtistsAlbumsScreen({ navigation }) {
   const [genres, setGenres] = useState([]);
   const [filteredGenres, setFilteredGenres] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('name'); // 'name' o 'count'
+  const [sortBy, setSortBy] = useState('count'); // default: más álbumes primero
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const [stats, setStats] = useState({
-    totalGenres: 0,
-    totalAlbums: 0,
-    mostCommonGenre: '',
-  });
+  const [stats, setStats] = useState({ totalGenres: 0, totalAlbums: 0 });
 
+  // Restaurar tab bar al volver
   useFocusEffect(
     useCallback(() => {
       navigation.getParent()?.setOptions({
-        tabBarStyle: tabBarStyle
+        tabBarStyle: {
+          position: 'absolute',
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          borderTopWidth: 0,
+          elevation: 0,
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
+        }
       });
     }, [navigation])
   );
 
-  // Cargar géneros al montar el componente
-  useEffect(() => {
-    loadGenres();
-  }, []);
+  useEffect(() => { loadGenres(); }, []);
 
-  // Filtrar y ordenar cuando cambian los criterios
   useEffect(() => {
     if (!genres.length) return;
-
-    let filtered = [...genres];
-
-    // Filtrar por búsqueda
+    let result = [...genres];
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(g => 
-        g.name.toLowerCase().includes(query)
-      );
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(g => g.name.toLowerCase().includes(q));
     }
-
-    // Ordenar
-    if (sortBy === 'name') {
-      filtered.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      filtered.sort((a, b) => b.count - a.count);
-    }
-
-    setFilteredGenres(filtered);
+    result.sort((a, b) => sortBy === 'name'
+      ? a.name.localeCompare(b.name)
+      : b.count - a.count
+    );
+    setFilteredGenres(result);
   }, [genres, searchQuery, sortBy]);
 
   const loadGenres = async () => {
     try {
       setLoading(true);
-      
       const result = await executeDBOperation(async (db) => {
-        // Obtener todos los álbumes con géneros
+        // Álbumes con géneros + una portada por género + rating promedio
         const albums = await db.getAllAsync(`
-          SELECT genres FROM albums 
-          WHERE genres IS NOT NULL AND genres != ''
+          SELECT a.genres, a.cover,
+            AVG(t.rating) as average_rating
+          FROM albums a
+          LEFT JOIN tracks t ON a.id = t.album_id
+          WHERE a.genres IS NOT NULL AND a.genres != ''
+          GROUP BY a.id
         `);
 
-        // Procesar géneros
-        const genreCount = new Map();
-        let totalAlbumsWithGenres = 0;
+        const genreMap = new Map(); // name → { count, covers, ratingSum, ratingCount }
 
         albums.forEach(item => {
-          if (item.genres) {
-            try {
-              const genresData = JSON.parse(item.genres);
-              if (Array.isArray(genresData)) {
-                totalAlbumsWithGenres++;
-                genresData.forEach(g => {
-                  const genreName = typeof g === 'object' ? g.name : g;
-                  if (genreName && genreName.trim()) {
-                    const count = genreCount.get(genreName) || 0;
-                    genreCount.set(genreName, count + 1);
-                  }
-                });
+          if (!item.genres) return;
+          try {
+            const parsed = JSON.parse(item.genres);
+            if (!Array.isArray(parsed)) return;
+            parsed.forEach(g => {
+              const name = typeof g === 'object' ? g.name : g;
+              if (!name?.trim()) return;
+              const existing = genreMap.get(name) || { count: 0, covers: [], ratingSum: 0, ratingCount: 0 };
+              existing.count++;
+              if (item.cover && existing.covers.length < 3) existing.covers.push(item.cover);
+              if (item.average_rating > 0) {
+                existing.ratingSum += item.average_rating;
+                existing.ratingCount++;
               }
-            } catch (e) {
-              // Ignorar errores de parseo
-              console.log('Error parsing genres:', e);
-            }
-          }
+              genreMap.set(name, existing);
+            });
+          } catch (_) {}
         });
 
-        // Convertir a array y calcular estadísticas
-        const genresArray = Array.from(genreCount.entries())
-          .map(([name, count]) => ({
-            id: name.toLowerCase().replace(/\s+/g, '-'),
-            name,
-            count,
-            color: getGenreColor(name),
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name));
+        // Colores pastel para fallback
+        const pastelColors = [
+          '#7C3AED', '#E67E22', '#16A085', '#C0392B', '#2980B9',
+          '#8E44AD', '#27AE60', '#D35400', '#2C3E50', '#E91E63',
+          '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#F39C12',
+        ];
+        let colorIndex = 0;
 
-        // Calcular estadísticas
-        const totalGenres = genresArray.length;
-        let mostCommonGenre = 'Ninguno';
-        
-        if (genresArray.length > 0) {
-          const mostCommon = genresArray.reduce((max, g) => 
-            g.count > max.count ? g : max, genresArray[0]
-          );
-          mostCommonGenre = mostCommon.name;
-        }
+        const genresArray = Array.from(genreMap.entries()).map(([name, data]) => ({
+          id: name.toLowerCase().replace(/\s+/g, '-'),
+          name,
+          count: data.count,
+          coverImage: data.covers[0] || null,
+          avgRating: data.ratingCount > 0 ? data.ratingSum / data.ratingCount : 0,
+          color: pastelColors[colorIndex++ % pastelColors.length],
+        }));
 
         return {
           genres: genresArray,
           stats: {
-            totalGenres,
-            totalAlbums: totalAlbumsWithGenres,
-            mostCommonGenre,
+            totalGenres: genresArray.length,
+            totalAlbums: albums.length,
           }
         };
       });
 
       if (result) {
-        setGenres(result.genres);
-        setFilteredGenres(result.genres);
+        // Default: ordenar por cantidad
+        const sorted = [...result.genres].sort((a, b) => b.count - a.count);
+        setGenres(sorted);
+        setFilteredGenres(sorted);
         setStats(result.stats);
       }
     } catch (error) {
-      console.error('Error cargando géneros:', error);
+      if (__DEV__) console.error('Error cargando géneros:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGenrePress = (genre) => {
-    navigation.navigate('Genre', { 
-      genre: genre.name,
-      color: genre.color 
-    });
-  };
+  const handleGenrePress = useCallback((genre) => {
+    navigation.navigate('Genre', { genre: genre.name, color: genre.color });
+  }, [navigation]);
 
-  const clearSearch = () => {
-    setSearchQuery('');
-  };
-
-  const toggleSortMenu = () => {
-    setShowSortMenu(!showSortMenu);
-  };
-
-  const selectSort = (option) => {
-    setSortBy(option);
-    setShowSortMenu(false);
-  };
+  // Top 3 por cantidad de álbumes
+  const top3Ids = new Set(
+    [...genres].sort((a, b) => b.count - a.count).slice(0, 3).map(g => g.id)
+  );
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={['rgba(255,255,255,0.03)', 'transparent']}
-          style={styles.headerGradient}
-        />
-        <GenresSkeleton />
-      </View>
-    );
+    return <View style={styles.container}><Skeleton /></View>;
   }
 
   return (
     <View style={styles.container}>
       {/* Menú de ordenamiento */}
       {showSortMenu && (
-        <TouchableOpacity 
-          style={styles.sortMenuOverlay}
+        <TouchableOpacity
+          style={styles.sortOverlay}
           activeOpacity={1}
           onPress={() => setShowSortMenu(false)}
         >
           <View style={styles.sortMenu}>
-            <TouchableOpacity
-              style={[styles.sortOption, sortBy === 'name' && styles.activeSortOption]}
-              onPress={() => selectSort('name')}
-            >
-              <Ionicons
-                name="text"
-                size={18}
-                color={sortBy === 'name' ? '#9333EA' : 'rgba(255,255,255,0.5)'}
-              />
-              <Text style={[styles.sortOptionText, sortBy === 'name' && styles.activeSortOptionText]}>
-                Nombre
-              </Text>
-              {sortBy === 'name' && (
-                <Ionicons name="checkmark" size={18} color="#9333EA" />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.sortOption, sortBy === 'count' && styles.activeSortOption]}
-              onPress={() => selectSort('count')}
-            >
-              <Ionicons
-                name="bar-chart"
-                size={18}
-                color={sortBy === 'count' ? '#9333EA' : 'rgba(255,255,255,0.5)'}
-              />
-              <Text style={[styles.sortOptionText, sortBy === 'count' && styles.activeSortOptionText]}>
-                Cantidad
-              </Text>
-              {sortBy === 'count' && (
-                <Ionicons name="checkmark" size={18} color="#9333EA" />
-              )}
-            </TouchableOpacity>
+            {[
+              { key: 'count', label: 'Más álbumes', icon: 'bar-chart' },
+              { key: 'name', label: 'Nombre A–Z', icon: 'text' },
+              { key: 'rating', label: 'Mejor rating', icon: 'star' },
+            ].map(opt => (
+              <TouchableOpacity
+                key={opt.key}
+                style={[styles.sortOption, sortBy === opt.key && styles.sortOptionActive]}
+                onPress={() => { setSortBy(opt.key); setShowSortMenu(false); }}
+              >
+                <Ionicons name={opt.icon} size={16} color={sortBy === opt.key ? 'white' : 'rgba(255,255,255,0.5)'} />
+                <Text style={[styles.sortOptionText, sortBy === opt.key && { color: 'white' }]}>
+                  {opt.label}
+                </Text>
+                {sortBy === opt.key && <Ionicons name="checkmark" size={16} color="white" />}
+              </TouchableOpacity>
+            ))}
           </View>
         </TouchableOpacity>
       )}
 
-      {/* Header con gradiente */}
-      <LinearGradient
-        colors={['rgba(255,255,255,0.03)', 'transparent']}
-        style={styles.headerGradient}
-      />
-
-      <View style={styles.header}>
-        <Text style={styles.title}>Géneros</Text>
-        <Text style={styles.subtitle}>Explora tu música por categorías</Text>
-      </View>
-
-      {/* Barra de búsqueda */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar género..."
-          placeholderTextColor="rgba(255,255,255,0.3)"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={clearSearch}>
-            <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Barra de estadísticas y ordenamiento */}
-      <View style={styles.statsBar}>
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.totalGenres}</Text>
-            <Text style={styles.statLabel}>géneros</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.totalAlbums}</Text>
-            <Text style={styles.statLabel}>álbumes</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue} numberOfLines={1}>
-              {stats.mostCommonGenre.length > 8 
-                ? stats.mostCommonGenre.substring(0, 8) + '…' 
-                : stats.mostCommonGenre}
-            </Text>
-            <Text style={styles.statLabel}>popular</Text>
-          </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Géneros</Text>
+          <Text style={styles.subtitle}>
+            {stats.totalGenres} géneros · {stats.totalAlbums} álbumes
+          </Text>
         </View>
 
-        <TouchableOpacity style={styles.sortButton} onPress={toggleSortMenu}>
-          <Ionicons 
-            name={sortBy === 'name' ? 'text' : 'bar-chart'} 
-            size={16} 
-            color="rgba(255,255,255,0.7)" 
-          />
-          <Text style={styles.sortButtonText}>
-            {sortBy === 'name' ? 'Nombre' : 'Cantidad'}
-          </Text>
-          <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.5)" />
-        </TouchableOpacity>
-      </View>
+        {/* Búsqueda + ordenar */}
+        <View style={styles.controlsRow}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search" size={16} color="rgba(255,255,255,0.4)" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar género..."
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.4)" />
+              </TouchableOpacity>
+            )}
+          </View>
 
-      {/* Lista de géneros */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+          <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSortMenu(true)}>
+            <Ionicons name="funnel" size={16} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Grid */}
         {filteredGenres.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="pricetags-outline" size={48} color="rgba(255,255,255,0.2)" />
-            </View>
+          <View style={styles.empty}>
+            <Ionicons name="pricetags-outline" size={48} color="rgba(255,255,255,0.2)" />
             <Text style={styles.emptyTitle}>
-              {searchQuery.trim() ? 'No se encontraron géneros' : 'No hay géneros'}
+              {searchQuery.trim() ? 'Sin resultados' : 'No hay géneros'}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {searchQuery.trim() 
-                ? 'Prueba con otra búsqueda' 
-                : 'Los géneros aparecerán cuando agregues álbumes'}
+              {searchQuery.trim() ? 'Prueba con otra búsqueda' : 'Aparecerán cuando guardes álbumes'}
             </Text>
           </View>
         ) : (
-          filteredGenres.map((genre) => {
-            const isLarge = genre.count > 10;
-            
-            return (
-              <TouchableOpacity
+          <View style={styles.grid}>
+            {filteredGenres.map(genre => (
+              <GenreCard
                 key={genre.id}
-                style={[styles.genreCard, isLarge && styles.largeGenreCard]}
-                onPress={() => handleGenrePress(genre)}
-                activeOpacity={0.7}
-              >
-                <LinearGradient
-                  colors={[genre.color + '40', genre.color + '20']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.genreGradient}
-                />
-                
-                <View style={[styles.genreColorBar, { backgroundColor: genre.color }]} />
-                
-                <View style={styles.genreContent}>
-                  <View style={styles.genreHeader}>
-                    <Text style={styles.genreName} numberOfLines={1}>
-                      {genre.name}
-                    </Text>
-                    {isLarge && (
-                      <View style={[styles.popularBadge, { backgroundColor: genre.color + '40' }]}>
-                        <Ionicons name="flame" size={12} color={genre.color} />
-                        <Text style={[styles.popularText, { color: genre.color }]}>Popular</Text>
-                      </View>
-                    )}
-                  </View>
-                  
-                  <View style={styles.genreStats}>
-                    <View style={styles.genreCountContainer}>
-                      <Ionicons name="albums" size={14} color="rgba(255,255,255,0.6)" />
-                      <Text style={styles.genreCount}>
-                        {genre.count} {genre.count === 1 ? 'álbum' : 'álbumes'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.genreArrow}>
-                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />
-                </View>
-              </TouchableOpacity>
-            );
-          })
+                genre={genre}
+                isTop3={top3Ids.has(genre.id)}
+                onPress={handleGenrePress}
+              />
+            ))}
+          </View>
         )}
-        
-        {/* Espacio extra al final */}
-        <View style={styles.bottomSpacer} />
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
+// ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000',
   },
-  headerGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 150,
-    pointerEvents: 'none',
+  scrollContent: {
+    paddingHorizontal: PADDING,
+    paddingBottom: 100,
   },
+
+  // Header
   header: {
     paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   title: {
     color: 'white',
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: 'bold',
     marginBottom: 4,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 5,
   },
   subtitle: {
     color: 'rgba(255,255,255,0.4)',
-    fontSize: 15,
+    fontSize: 14,
   },
-  searchContainer: {
+
+  // Controles
+  controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    marginHorizontal: 20,
     marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    gap: 10,
+  },
+  searchBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   searchInput: {
     flex: 1,
     color: 'white',
-    fontSize: 15,
-    marginLeft: 10,
+    fontSize: 14,
+    marginLeft: 8,
     padding: 0,
   },
-  statsBar: {
-    flexDirection: 'row',
+  sortBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // Grid
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginBottom: 20,
   },
-  statsContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 20,
-    paddingVertical: 5,
-    paddingHorizontal: 3,
-    marginRight: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+
+  // Card
+  card: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: GAP,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'flex-end',
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  statLabel: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginHorizontal: 1,
-  },
-  sortButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  sortButtonText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
-    marginHorizontal: 4,
-  },
-  sortMenuOverlay: {
+  flameBadge: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 10,
+    left: 10,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.5)',
+  },
+  ratingBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+  },
+  ratingText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  cardInfo: {
+    padding: 12,
+  },
+  cardName: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 5,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cardCount: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+  },
+
+  // Sort menu
+  sortOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 100,
     backgroundColor: 'transparent',
-    zIndex: 1000,
   },
   sortMenu: {
     position: 'absolute',
-    top: 180,
-    right: 20,
-    backgroundColor: '#1a1a1a',
+    top: 130,
+    right: PADDING,
+    backgroundColor: '#1c1c1e',
     borderRadius: 16,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
+    padding: 6,
+    width: 190,
+    zIndex: 101,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    width: 160,
-    zIndex: 1001,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
   },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 10,
   },
-  activeSortOption: {
-    backgroundColor: 'rgba(147,51,234,0.1)',
+  sortOptionActive: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   sortOptionText: {
     flex: 1,
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    marginLeft: 10,
-  },
-  activeSortOptionText: {
-    color: '#9333EA',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  // Estilos para tarjetas de género
-  genreCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.02)',
-  },
-  largeGenreCard: {
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  genreGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  genreColorBar: {
-    width: 6,
-    height: '100%',
-    alignSelf: 'stretch',
-  },
-  genreContent: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  genreHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  genreName: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '600',
-    flex: 1,
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  popularBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  popularText: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginLeft: 2,
-  },
-  genreStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  genreCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  genreCount: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 13,
-    marginLeft: 4,
+    fontSize: 14,
   },
-  genreArrow: {
-    paddingRight: 16,
-  },
-  emptyContainer: {
+
+  // Empty
+  empty: {
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 80,
-    paddingHorizontal: 32,
-  },
-  emptyIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    gap: 12,
   },
   emptyTitle: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 18,
     fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8,
   },
   emptySubtitle: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.35)',
     fontSize: 14,
     textAlign: 'center',
-  },
-  bottomSpacer: {
-    height: 40,
-  },
-  // Estilos para skeleton
-  skeletonContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  skeletonHeader: {
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  skeletonTitle: {
-    width: 150,
-    height: 34,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  skeletonSubtitle: {
-    width: 200,
-    height: 15,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 4,
-  },
-  skeletonSearch: {
-    height: 48,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  skeletonStats: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  skeletonStat: {
-    flex: 1,
-    height: 50,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 12,
-    marginHorizontal: 4,
-  },
-  skeletonCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    padding: 16,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  skeletonCardColor: {
-    width: 6,
-    height: 50,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 3,
-    marginRight: 16,
-  },
-  skeletonCardContent: {
-    flex: 1,
-  },
-  skeletonCardTitle: {
-    width: '60%',
-    height: 18,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  skeletonCardSubtitle: {
-    width: '40%',
-    height: 14,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 4,
   },
 });

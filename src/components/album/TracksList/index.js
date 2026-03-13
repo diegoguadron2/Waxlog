@@ -8,7 +8,8 @@ const TracksList = ({
     isSaved,
     onTrackPress,
     expandedComments = {},
-    onToggleComment
+    onToggleComment,
+    dominantColor,
 }) => {
     if (!tracks || tracks.length === 0) {
         return null;
@@ -75,7 +76,6 @@ const TracksList = ({
 
             {groupedTracks.map((disk, diskIndex) => (
                 <View key={`disk-${disk.diskNumber}`}>
-                    {/* Mostrar separador SOLO si hay más de un disco */}
                     {groupedTracks.length > 1 && (
                         <View style={styles.diskSeparator}>
                             <View style={styles.diskLine} />
@@ -84,7 +84,6 @@ const TracksList = ({
                         </View>
                     )}
 
-                    {/* Tracks del disco */}
                     {disk.tracks.map((track, trackIndex) => (
                         <TrackItem
                             key={track.id || `track-${disk.diskNumber}-${trackIndex}`}
@@ -96,6 +95,7 @@ const TracksList = ({
                             onToggleComment={onToggleComment}
                             showDiskNumber={groupedTracks.length > 1}
                             currentDisk={disk.diskNumber}
+                            dominantColor={dominantColor}
                         />
                     ))}
                 </View>

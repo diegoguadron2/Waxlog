@@ -51,6 +51,7 @@ const AlbumHeader = ({
     onSaveAlbum,
     onShowStateModal,
     onGoBack,
+    onArtistPress,
     // 👇 NUEVA PROP: estilos animados para la imagen (parallax)
     imageAnimatedStyle,
 }) => {
@@ -130,7 +131,19 @@ const AlbumHeader = ({
                             />
                         </View>
 
-                        <Text style={styles.artistName}>{artistName}</Text>
+                        {onArtistPress ? (
+                          <TouchableOpacity
+                            onPress={onArtistPress}
+                            style={styles.artistNameRow}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          >
+                            <Text style={styles.artistName}>{artistName}</Text>
+                            <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.5)" />
+                          </TouchableOpacity>
+                        ) : (
+                          <Text style={styles.artistName}>{artistName}</Text>
+                        )}
 
                         <View style={styles.metadata}>
                             <Text style={styles.trackCount}>
@@ -240,10 +253,15 @@ const styles = StyleSheet.create({
     favoriteStar: {
         marginLeft: 8,
     },
+    artistNameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 4,
+    },
     artistName: {
         color: 'rgba(255,255,255,0.7)',
         fontSize: 18,
-        marginTop: 4,
         textShadowColor: 'rgba(0,0,0,0.5)',
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 2,

@@ -1,15 +1,19 @@
 // screens/ToListenScreen.js
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   RefreshControl,
   FlatList,
+  TouchableOpacity,
+  ImageBackground,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
-import { tabBarStyle } from '../navigation/AppNavigator';
 import { useAlbumsByState } from '../hooks/useAlbumsByState';
-import { Animated } from 'react-native'; 
+
 // Componentes
 import AlbumCard from '../components/library/AlbumCard';
 import AlbumSkeleton from '../components/library/AlbumSkeleton';
@@ -20,12 +24,180 @@ import EmptyLibraryState from '../components/library/EmptyLibraryState';
 import SharedElement from '../components/shared/SharedElement';
 import { PADDING_HORIZONTAL, GAP, CARD_WIDTH } from '../constants/layout';
 
+const TAB_BAR_STYLE = {
+  position: 'absolute',
+  backgroundColor: 'rgba(0,0,0,0.8)',
+  borderTopWidth: 0,
+  elevation: 0,
+  height: 70,
+  paddingBottom: 10,
+  paddingTop: 10,
+};
+
+const ACCENT = '#FBBF24';
+
+// Cuánto tiempo lleva un álbum en la lista
+const getTimeAgo = (dateStr) => {
+  if (!dateStr) return null;
+  const added = new Date(dateStr);
+  const now = new Date();
+  const days = Math.floor((now - added) / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Agregado hoy';
+  if (days === 1) return 'Hace 1 día';
+  if (days < 7) return `Hace ${days} días`;
+  if (days < 14) return 'Hace 1 semana';
+  if (days < 30) return `Hace ${Math.floor(days / 7)} semanas`;
+  if (days < 60) return 'Hace 1 mes';
+  return `Hace ${Math.floor(days / 30)} meses`;
+};
+
+// ─── Card álbum del día ───────────────────────────────────────────────────────
+const DailyAlbumCard = ({ album, onPress, onShuffle }) => {
+  const timeAgo = getTimeAgo(album.downloaded_at);
+
+  return (
+    <View style={card.container}>
+      <TouchableOpacity onPress={() => onPress(album)} activeOpacity={0.9}>
+        <ImageBackground
+          source={{ uri: album.cover }}
+          style={card.image}
+          imageStyle={{ borderRadius: 16 }}
+        >
+          {/* Gradiente oscuro solo abajo */}
+          <LinearGradient
+            colors={['transparent', 'transparent', 'rgba(0,0,0,0.75)', 'rgba(0,0,0,0.95)']}
+            locations={[0, 0.45, 0.75, 1]}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          {/* Badge + shuffle en la misma fila arriba */}
+          <View style={card.topRow}>
+            <View style={card.badge}>
+              <Ionicons name="sunny" size={11} color={ACCENT} />
+              <Text style={card.badgeText}>Álbum del día</Text>
+            </View>
+            <TouchableOpacity
+              style={card.shuffleBtn}
+              onPress={onShuffle}
+              activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="shuffle" size={16} color={ACCENT} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Info abajo */}
+          <View style={card.info}>
+            <Text style={card.title} numberOfLines={2}>{album.title}</Text>
+            <Text style={card.artist} numberOfLines={1}>{album.artist_name}</Text>
+            <View style={card.meta}>
+              {timeAgo && (
+                <View style={card.metaItem}>
+                  <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.5)" />
+                  <Text style={card.metaText}>{timeAgo}</Text>
+                </View>
+              )}
+              {album.total_tracks > 0 && (
+                <View style={card.metaItem}>
+                  <Ionicons name="musical-notes-outline" size={12} color="rgba(255,255,255,0.5)" />
+                  <Text style={card.metaText}>
+                    {album.total_tracks} {album.total_tracks === 1 ? 'canción' : 'canciones'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </ImageBackground>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const card = StyleSheet.create({
+  container: {
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: `${ACCENT}30`,
+  },
+  image: {
+    width: '100%',
+    aspectRatio: 1,
+    justifyContent: 'space-between',
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    margin: 14,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+    borderColor: `${ACCENT}60`,
+    gap: 5,
+  },
+  badgeText: {
+    color: ACCENT,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  shuffleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+    borderColor: `${ACCENT}60`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  info: {
+    padding: 16,
+  },
+  title: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 4,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  artist: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 15,
+    marginBottom: 10,
+  },
+  meta: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+  },
+});
+
+// ─── Pantalla principal ───────────────────────────────────────────────────────
 export default function ToListenScreen({ navigation }) {
   const [viewMode, setViewMode] = useState('grid');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [dailyIndex, setDailyIndex] = useState(0);
   const flatListRef = useRef(null);
 
-  // 👇 USAR CORRECTAMENTE EL NUEVO HOOK
   const {
     albums,
     loading,
@@ -35,23 +207,28 @@ export default function ToListenScreen({ navigation }) {
     sortOptions,
     handleSortChange,
     onRefresh,
-  } = useAlbumsByState('to_listen'); // 👈 Solo pasamos el estado, no tabs
+  } = useAlbumsByState('to_listen');
+
+  // Álbum del día — determinístico por fecha, cambia con shuffle
+  const dailyAlbum = useMemo(() => {
+    if (!albums.length) return null;
+    // Base: índice según día del año para que sea consistente
+    const dayOfYear = Math.floor(
+      (new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24)
+    );
+    const baseIndex = (dayOfYear + dailyIndex) % albums.length;
+    return albums[baseIndex];
+  }, [albums, dailyIndex]);
 
   useFocusEffect(
     useCallback(() => {
-      navigation.getParent()?.setOptions({
-        tabBarStyle: tabBarStyle
-      });
+      navigation.getParent()?.setOptions({ tabBarStyle: TAB_BAR_STYLE });
     }, [navigation])
   );
 
   const handleAlbumPress = useCallback((album) => {
     navigation.navigate('Album', {
-      album: {
-        id: album.deezer_id,
-        title: album.title,
-        cover: album.cover,
-      },
+      album: { id: album.deezer_id, title: album.title, cover: album.cover },
       artistName: album.artist_name,
       artistId: album.artist_deezer_id,
       refresh: true,
@@ -59,12 +236,14 @@ export default function ToListenScreen({ navigation }) {
     });
   }, [navigation]);
 
+  const handleShuffle = useCallback(() => {
+    setDailyIndex(prev => prev + 1);
+  }, []);
+
   const handleLocalSortChange = useCallback((optionId) => {
     handleSortChange(optionId);
     setShowSortMenu(false);
-    if (flatListRef.current) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
-    }
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, [handleSortChange]);
 
   const renderGridItem = useCallback(({ item }) => (
@@ -72,7 +251,7 @@ export default function ToListenScreen({ navigation }) {
       <AlbumCard
         album={item}
         viewMode="grid"
-        activeTab="to_listen" // 👈 Pasamos el estado como string
+        activeTab="to_listen"
         onPress={handleAlbumPress}
         cardWidth={CARD_WIDTH}
       />
@@ -93,10 +272,21 @@ export default function ToListenScreen({ navigation }) {
   const renderHeader = useCallback(() => (
     <>
       <LibraryHeader
-        totalAlbums={totalCount} // 👈 Usamos totalCount
+        totalAlbums={totalCount}
         onAddPress={() => navigation.navigate('SaveAlbum')}
         title="Por escuchar"
+        accentColor={ACCENT}
       />
+
+      {/* Card álbum del día */}
+      {dailyAlbum && (
+        <DailyAlbumCard
+          album={dailyAlbum}
+          onPress={handleAlbumPress}
+          onShuffle={handleShuffle}
+        />
+      )}
+
       <ControlsBar
         sortLabel={sortOptions.find(o => o.id === sortBy)?.label || 'Ordenar'}
         onSortPress={() => setShowSortMenu(!showSortMenu)}
@@ -104,7 +294,7 @@ export default function ToListenScreen({ navigation }) {
         onViewModeChange={setViewMode}
       />
     </>
-  ), [totalCount, sortOptions, sortBy, showSortMenu, viewMode, navigation]);
+  ), [totalCount, dailyAlbum, sortOptions, sortBy, showSortMenu, viewMode, navigation, handleAlbumPress, handleShuffle]);
 
   if (loading && albums.length === 0) {
     return (
@@ -113,7 +303,10 @@ export default function ToListenScreen({ navigation }) {
           totalAlbums={0}
           onAddPress={() => navigation.navigate('SaveAlbum')}
           title="Por escuchar"
+          accentColor={ACCENT}
         />
+        {/* Skeleton card */}
+        <View style={styles.skeletonCard} />
         <View style={styles.controlsBar}>
           <View style={[styles.controlButton, styles.skeletonControl]} />
           <View style={[styles.viewToggle, styles.skeletonViewToggle]} />
@@ -135,7 +328,7 @@ export default function ToListenScreen({ navigation }) {
 
       <FlatList
         ref={flatListRef}
-        data={albums} // 👈 Usamos albums
+        data={albums}
         renderItem={viewMode === 'grid' ? renderGridItem : renderListItem}
         keyExtractor={(item) => `album-${item.id}-${viewMode}`}
         numColumns={viewMode === 'grid' ? 2 : 1}
@@ -149,7 +342,7 @@ export default function ToListenScreen({ navigation }) {
         ) : null}
         contentContainerStyle={[
           styles.scrollContent,
-          albums.length === 0 && styles.emptyContent, // 👈 Usamos albums
+          albums.length === 0 && styles.emptyContent,
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -157,7 +350,7 @@ export default function ToListenScreen({ navigation }) {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor="rgba(255,255,255,0.7)"
-            colors={['#9333EA']}
+            colors={[ACCENT]}
           />
         }
         maxToRenderPerBatch={10}
@@ -170,7 +363,6 @@ export default function ToListenScreen({ navigation }) {
   );
 }
 
-// Los estilos se mantienen igual
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -212,6 +404,13 @@ const styles = StyleSheet.create({
   columnWrapper: {
     justifyContent: 'space-between',
     marginBottom: GAP,
+  },
+  skeletonCard: {
+    aspectRatio: 1,
+    marginHorizontal: PADDING_HORIZONTAL,
+    marginBottom: 20,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   skeletonControl: {
     width: 100,

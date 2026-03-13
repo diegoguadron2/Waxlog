@@ -118,14 +118,12 @@ export default function AlbumScreen({ route, navigation }) {
   const contentTranslateY = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    console.log('AlbumScreen montado con params:', { initialAlbum, artistName, artistId });
     updateAlbum(initialAlbum || {});
     loadAlbumData();
   }, []);
 
   useEffect(() => {
     if (refresh) {
-      console.log('Recargando por refresh...');
       loadAlbumData();
     }
   }, [refresh]);
@@ -169,7 +167,7 @@ export default function AlbumScreen({ route, navigation }) {
   // Efecto para animar el contenido cuando la imagen esté lista
   useEffect(() => {
     if (!imageLoading) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setContentReady(true);
         Animated.parallel([
           Animated.timing(contentOpacity, {
@@ -185,6 +183,7 @@ export default function AlbumScreen({ route, navigation }) {
           }),
         ]).start();
       }, 50);
+      return () => clearTimeout(timer);
     }
   }, [imageLoading]);
 
@@ -198,7 +197,7 @@ export default function AlbumScreen({ route, navigation }) {
       }
       setImageLoading(false);
     } catch (error) {
-      console.error('Error con imagen:', error);
+      if (__DEV__) console.error('Error con imagen:', error);
       setImageLoading(false);
     }
   };
@@ -222,7 +221,7 @@ export default function AlbumScreen({ route, navigation }) {
           setDominantColor('#000000');
       }
     } catch (error) {
-      console.error('Error obteniendo colores:', error);
+      if (__DEV__) console.error('Error obteniendo colores:', error);
       setDominantColor('#000000');
     }
   };
@@ -298,6 +297,9 @@ export default function AlbumScreen({ route, navigation }) {
           onSaveAlbum={saveAlbum}
           onShowStateModal={() => setShowStateModal(true)}
           onGoBack={() => navigation.goBack()}
+          onArtistPress={artistId ? () => navigation.navigate('Artist', {
+            artist: { id: artistId, name: artistName }
+          }) : undefined}
           // 👇 PASAMOS LOS ESTILOS ANIMADOS
           imageAnimatedStyle={imageAnimatedStyle}
         />
@@ -316,9 +318,12 @@ export default function AlbumScreen({ route, navigation }) {
           />
 
           {isSaved && (
-            <View style={styles.tabsContainer}>
+            <View style={[styles.tabsContainer, { borderColor: dominantColor + '40' }]}>
               <TouchableOpacity
-                style={[styles.tab, activeInfoTab === 'tracks' && styles.activeTab]}
+                style={[
+                  styles.tab,
+                  activeInfoTab === 'tracks' && [styles.activeTab, { backgroundColor: dominantColor + '30' }]
+                ]}
                 onPress={() => setActiveInfoTab('tracks')}
               >
                 <Ionicons
@@ -332,7 +337,10 @@ export default function AlbumScreen({ route, navigation }) {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.tab, activeInfoTab === 'info' && styles.activeTab]}
+                style={[
+                  styles.tab,
+                  activeInfoTab === 'info' && [styles.activeTab, { backgroundColor: dominantColor + '30' }]
+                ]}
                 onPress={() => setActiveInfoTab('info')}
               >
                 <Ionicons
@@ -351,6 +359,7 @@ export default function AlbumScreen({ route, navigation }) {
             <TracksList
               tracks={tracks}
               isSaved={isSaved}
+              dominantColor={dominantColor}
               onTrackPress={(trackId) => {
                 setSelectedTrack(trackId);
                 setRatingModalVisible(true);
@@ -382,6 +391,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.2)',
     borderRadius: 12,
     padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   tab: {
     flex: 1,

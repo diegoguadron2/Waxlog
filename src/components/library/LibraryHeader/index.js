@@ -14,7 +14,8 @@ const PADDING_HORIZONTAL = 16;
 
 const LibraryHeader = ({
   totalAlbums,
-  title = 'Mi Biblioteca'
+  title = 'Mi Biblioteca',
+  accentColor = 'rgba(255,255,255,0.5)',
 }) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const menuButtonRef = useRef(null);
@@ -52,9 +53,12 @@ const LibraryHeader = ({
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{title}</Text>
-          <Text style={styles.headerSubtitle}>
-            {totalAlbums} {totalAlbums === 1 ? 'álbum' : 'álbumes'}
-          </Text>
+          <View style={styles.subtitleRow}>
+            <View style={[styles.accentDot, { backgroundColor: accentColor }]} />
+            <Text style={[styles.headerSubtitle, { color: accentColor }]}>
+              {totalAlbums} {totalAlbums === 1 ? 'álbum' : 'álbumes'}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
           ref={menuButtonRef}
@@ -118,9 +122,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   headerSubtitle: {
-    color: 'rgba(255,255,255,0.5)',
     fontSize: 13,
     marginTop: 4,
+  },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  accentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   menuContainer: {
     position: 'absolute',

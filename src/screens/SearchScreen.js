@@ -15,19 +15,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDeezerSearch } from '../hooks/useDeezerSearch';
 import { getDB } from '../database/Index';
-import { tabBarStyle } from '../navigation/AppNavigator';
 import { useFocusEffect } from '@react-navigation/native';
-
-// Colores para calificaciones (para resultados locales)
-const getRatingColor = (rating) => {
-  if (!rating) return '#9CA3AF';
-  const colors = [
-    '#fc3a3a', '#f56c45', '#ffa457', '#ffcb52', '#faed52',
-    '#e1ff47', '#b1fa6b', '#6ad46a', '#3ecf3e', '#28bf28',
-  ];
-  const index = Math.min(9, Math.max(0, Math.floor(rating) - 1));
-  return colors[index];
-};
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withDelay,
+  withSpring,
+} from 'react-native-reanimated';
+import { getRatingColor } from '../utils/colors';
 
 const formatRating = (rating) => {
   if (!rating) return '-';
@@ -129,10 +125,40 @@ const SearchSkeleton = () => {
   );
 };
 
+// Wrapper animado para cada resultado — fade + slide + press feedback
+const AnimatedResultCard = ({ index, onPress, children, style }) => {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(16);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    opacity.value = withDelay(index * 50, withTiming(1, { duration: 300 }));
+    translateY.value = withDelay(index * 50, withTiming(0, { duration: 300 }));
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+  }));
+
+  return (
+    <Reanimated.View style={animatedStyle}>
+      <TouchableOpacity
+        style={style}
+        onPress={onPress}
+        onPressIn={() => { scale.value = withSpring(0.97, { damping: 15, stiffness: 300 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 15, stiffness: 300 }); }}
+        activeOpacity={1}
+      >
+        {children}
+      </TouchableOpacity>
+    </Reanimated.View>
+  );
+};
+
 export default function SearchScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [initialLoading, setInitialLoading] = useState(true);
   const [localResults, setLocalResults] = useState({
     artists: [],
     albums: [],
@@ -147,27 +173,16 @@ export default function SearchScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      navigation.getParent()?.setOptions({
-        tabBarStyle: tabBarStyle
-      });
+      // restaurar tab bar al entrar
+      navigation.getParent()?.setOptions({ tabBarStyle: { display: 'flex' } });
     }, [navigation])
   );
 
   useEffect(() => {
     mountedRef.current = true;
-    
-    // Simular carga inicial
-    setTimeout(() => {
-      if (mountedRef.current) {
-        setInitialLoading(false);
-      }
-    }, 1000);
-
     return () => {
       mountedRef.current = false;
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, []);
 
@@ -535,6 +550,19 @@ export default function SearchScreen({ navigation }) {
   const renderResults = () => {
     const isLoading = loadingDeezer || loadingLocal;
 
+    // Estado vacío — no se ha buscado nada todavía
+    if (!searchQuery.trim() && !isLoading) {
+      return (
+        <View style={styles.emptySearchState}>
+          <Ionicons name="musical-notes" size={64} color="rgba(255,255,255,0.1)" />
+          <Text style={styles.emptySearchTitle}>Busca música</Text>
+          <Text style={styles.emptySearchSubtitle}>
+            Encuentra álbumes y artistas en Deezer o en tu biblioteca
+          </Text>
+        </View>
+      );
+    }
+
     if (isLoading) {
       return (
         <View style={styles.resultsContainer}>
@@ -566,133 +594,239 @@ export default function SearchScreen({ navigation }) {
       );
     }
 
+    // Contador global para animar escalonado entre secciones
+    let cardIndex = 0;
+
     return (
       <View style={styles.resultsContainer}>
-        {/* SECCIÓN DEEZER - Solo si no estamos en filtro 'local' */}
+        {/* SECCIÓN DEEZER — tinte azul para diferenciar */}
         {activeFilter !== 'local' && (hasDeezerAlbums || hasDeezerArtists) && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="cloud" size={20} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.sectionTitle}>En Deezer</Text>
+              <View style={styles.sectionIconDeezer}>
+                <Ionicons name="cloud" size={14} color="#60A5FA" />
+              </View>
+              <Text style={[styles.sectionTitle, { color: '#93C5FD' }]}>En Deezer</Text>
             </View>
 
             {showAlbums && hasDeezerAlbums && (
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Álbumes</Text>
-                {deezerResults.albums.map(renderDeezerAlbum)}
+                {deezerResults.albums.map((album) => {
+                  const idx = cardIndex++;
+                  return (
+                    <AnimatedResultCard
+                      key={`deezer-album-${album.id}`}
+                      index={idx}
+                      style={[styles.albumCard, styles.deezerCard]}
+                      onPress={() => navigation.navigate('Album', {
+                        album: {
+                          id: album.id,
+                          title: album.title,
+                          cover: album.cover_medium || album.cover_big || album.cover_small,
+                          release_date: album.release_date,
+                          nb_tracks: album.nb_tracks
+                        },
+                        artistName: album.artist.name,
+                        artistId: album.artist.id
+                      })}
+                    >
+                      <ImageBackground
+                        source={{ uri: album.cover_medium || album.cover_big }}
+                        style={styles.albumBackground}
+                        blurRadius={70}
+                      />
+                      <View style={[styles.albumOverlay, styles.deezerOverlay]} />
+                      <Image source={{ uri: album.cover_medium || album.cover_big }} style={styles.albumCover} />
+                      <View style={styles.albumInfo}>
+                        <Text style={styles.albumTitle} numberOfLines={1}>{album.title}</Text>
+                        <Text style={styles.albumArtist} numberOfLines={1}>{album.artist.name}</Text>
+                        <View style={[styles.sourceBadge, styles.sourceBadgeDeezer]}>
+                          <Ionicons name="cloud-outline" size={10} color="#93C5FD" />
+                          <Text style={[styles.sourceBadgeText, { color: '#93C5FD' }]}>Deezer</Text>
+                        </View>
+                      </View>
+                    </AnimatedResultCard>
+                  );
+                })}
               </View>
             )}
 
             {showArtists && hasDeezerArtists && (
               <View style={styles.subsection}>
                 <Text style={styles.subsectionTitle}>Artistas</Text>
-                {deezerResults.artists.map(renderDeezerArtist)}
+                {deezerResults.artists.map((artist) => {
+                  const idx = cardIndex++;
+                  return (
+                    <AnimatedResultCard
+                      key={`deezer-artist-${artist.id}`}
+                      index={idx}
+                      style={[styles.artistCard, styles.deezerCard]}
+                      onPress={() => navigation.navigate('Artist', { artist })}
+                    >
+                      <ImageBackground
+                        source={{ uri: artist.picture_medium || artist.picture_big }}
+                        style={styles.artistBackground}
+                        blurRadius={70}
+                      />
+                      <View style={[styles.artistOverlay, styles.deezerOverlay]} />
+                      <View style={styles.artistInfo}>
+                        <Text style={styles.artistName} numberOfLines={1}>{artist.name}</Text>
+                        {artist.nb_fan ? (
+                          <Text style={styles.artistFans}>{artist.nb_fan.toLocaleString()} fans</Text>
+                        ) : null}
+                        <View style={[styles.sourceBadge, styles.sourceBadgeDeezer]}>
+                          <Ionicons name="cloud-outline" size={10} color="#93C5FD" />
+                          <Text style={[styles.sourceBadgeText, { color: '#93C5FD' }]}>Deezer</Text>
+                        </View>
+                      </View>
+                      <Image source={{ uri: artist.picture_medium || artist.picture_big }} style={styles.artistImage} />
+                    </AnimatedResultCard>
+                  );
+                })}
               </View>
             )}
           </View>
         )}
 
-        {/* SECCIÓN BIBLIOTECA LOCAL */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="library" size={20} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.sectionTitle}>En tu biblioteca</Text>
+        {/* SECCIÓN BIBLIOTECA — tinte verde para diferenciar */}
+        {(hasLocalAlbums || hasLocalArtists || hasLocalGenres) && (
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIconLocal}>
+                <Ionicons name="library" size={14} color="#4ADE80" />
+              </View>
+              <Text style={[styles.sectionTitle, { color: '#86EFAC' }]}>En tu biblioteca</Text>
+            </View>
+
+            {(activeFilter === 'all' || activeFilter === 'albums' || activeFilter === 'local') && hasLocalAlbums && (
+              <View style={styles.subsection}>
+                <Text style={styles.subsectionTitle}>Álbumes</Text>
+                {localResults.albums.map((album) => {
+                  const idx = cardIndex++;
+                  const ratingColor = album.average_rating ? getRatingColor(album.average_rating) : '#9CA3AF';
+                  const hasComment = album.user_description && album.user_description.trim().length > 0;
+                  return (
+                    <AnimatedResultCard
+                      key={`local-album-${album.id}`}
+                      index={idx}
+                      style={[styles.localAlbumCard, styles.localCard, album.is_favorite === 1 && styles.favoriteCard]}
+                      onPress={() => navigation.navigate('Album', {
+                        album: { id: album.deezer_id, title: album.title, cover: album.cover },
+                        artistName: album.artist_name,
+                        artistId: album.artist_deezer_id,
+                        refresh: true
+                      })}
+                    >
+                      <ImageBackground source={{ uri: album.cover }} style={styles.albumBackground} blurRadius={70} />
+                      <View style={[styles.albumOverlay, styles.localOverlay]} />
+                      <Image source={{ uri: album.cover }} style={styles.albumCover} />
+                      <View style={[styles.albumInfo, hasComment && styles.albumInfoWithComment]}>
+                        <Text style={styles.albumTitle} numberOfLines={1}>{album.title}</Text>
+                        <Text style={styles.albumArtist} numberOfLines={1}>{album.artist_name}</Text>
+                        <View style={styles.albumMetaRow}>
+                          <View style={[styles.sourceBadge, styles.sourceBadgeLocal]}>
+                            <Ionicons name="library-outline" size={10} color="#4ADE80" />
+                            <Text style={[styles.sourceBadgeText, { color: '#4ADE80' }]}>Mi biblioteca</Text>
+                          </View>
+                          {album.average_rating > 0 && (
+                            <View style={[styles.resultRating, { backgroundColor: ratingColor + '20' }]}>
+                              <Text style={[styles.resultRatingText, { color: ratingColor }]}>
+                                {formatRating(album.average_rating)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        {hasComment && (
+                          <View style={styles.commentContainer}>
+                            <Ionicons name="chatbubble-outline" size={12} color="rgba(255,255,255,0.5)" />
+                            <Text style={styles.albumComment} numberOfLines={2}>{album.user_description}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </AnimatedResultCard>
+                  );
+                })}
+              </View>
+            )}
+
+            {(activeFilter === 'all' || activeFilter === 'artists' || activeFilter === 'local') && hasLocalArtists && (
+              <View style={styles.subsection}>
+                <Text style={styles.subsectionTitle}>Artistas</Text>
+                {localResults.artists.map((artist) => {
+                  const idx = cardIndex++;
+                  const ratingColor = artist.average_rating ? getRatingColor(artist.average_rating) : '#9CA3AF';
+                  return (
+                    <AnimatedResultCard
+                      key={`local-artist-${artist.id}`}
+                      index={idx}
+                      style={[styles.localArtistCard, styles.localCard]}
+                      onPress={() => navigation.navigate('Artist', {
+                        artist: { id: artist.deezer_id, name: artist.name, picture: artist.picture }
+                      })}
+                    >
+                      <ImageBackground source={{ uri: artist.picture }} style={styles.artistBackground} blurRadius={70} />
+                      <View style={[styles.artistOverlay, styles.localOverlay]} />
+                      <View style={styles.artistInfo}>
+                        <Text style={styles.artistName} numberOfLines={1}>{artist.name}</Text>
+                        <Text style={styles.artistFans}>
+                          {artist.album_count || 0} {artist.album_count === 1 ? 'álbum' : 'álbumes'} en tu biblioteca
+                        </Text>
+                        <View style={styles.artistMetaRow}>
+                          <View style={[styles.sourceBadge, styles.sourceBadgeLocal]}>
+                            <Ionicons name="library-outline" size={10} color="#4ADE80" />
+                            <Text style={[styles.sourceBadgeText, { color: '#4ADE80' }]}>Mi biblioteca</Text>
+                          </View>
+                          {artist.average_rating > 0 && (
+                            <View style={[styles.resultRating, { backgroundColor: ratingColor + '20', marginLeft: 8 }]}>
+                              <Text style={[styles.resultRatingText, { color: ratingColor }]}>
+                                {formatRating(artist.average_rating)}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      <Image source={{ uri: artist.picture }} style={styles.artistImage} />
+                    </AnimatedResultCard>
+                  );
+                })}
+              </View>
+            )}
+
+            {(activeFilter === 'all' || activeFilter === 'local') && hasLocalGenres && (
+              <View style={styles.subsection}>
+                <Text style={styles.subsectionTitle}>Géneros</Text>
+                {localResults.genres.map((genre) => {
+                  const idx = cardIndex++;
+                  return (
+                    <AnimatedResultCard
+                      key={`genre-${genre.name}`}
+                      index={idx}
+                      style={styles.genreCard}
+                      onPress={() => navigation.navigate('Genre', { genre: genre.name })}
+                    >
+                      <View style={styles.genreContent}>
+                        <View style={styles.genreIconContainer}>
+                          <Ionicons name="pricetag" size={20} color="#4ADE80" />
+                        </View>
+                        <View style={styles.genreInfo}>
+                          <Text style={styles.genreName} numberOfLines={1}>{genre.name}</Text>
+                          <View style={[styles.sourceBadge, styles.sourceBadgeLocal]}>
+                            <Ionicons name="library-outline" size={10} color="#4ADE80" />
+                            <Text style={[styles.sourceBadgeText, { color: '#4ADE80' }]}>Mi biblioteca</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </AnimatedResultCard>
+                  );
+                })}
+              </View>
+            )}
           </View>
-
-          {/* Álbumes - visibles si el filtro es 'all', 'albums' o 'local' */}
-          {(activeFilter === 'all' || activeFilter === 'albums' || activeFilter === 'local') && (
-            <View style={styles.subsection}>
-              <Text style={styles.subsectionTitle}>Álbumes</Text>
-              {hasLocalAlbums ? (
-                localResults.albums.map(renderLocalAlbum)
-              ) : (
-                renderEmptyLocalMessage('albums')
-              )}
-            </View>
-          )}
-
-          {/* Artistas - visibles si el filtro es 'all', 'artists' o 'local' */}
-          {(activeFilter === 'all' || activeFilter === 'artists' || activeFilter === 'local') && (
-            <View style={styles.subsection}>
-              <Text style={styles.subsectionTitle}>Artistas</Text>
-              {hasLocalArtists ? (
-                localResults.artists.map(renderLocalArtist)
-              ) : (
-                renderEmptyLocalMessage('artists')
-              )}
-            </View>
-          )}
-
-          {/* Géneros - solo visibles en filtro 'all' o 'local' */}
-          {(activeFilter === 'all' || activeFilter === 'local') && (
-            <View style={styles.subsection}>
-              <Text style={styles.subsectionTitle}>Géneros</Text>
-              {hasLocalGenres ? (
-                localResults.genres.map(renderLocalGenre)
-              ) : (
-                renderEmptyLocalMessage('genres')
-              )}
-            </View>
-          )}
-        </View>
+        )}
       </View>
     );
   };
-
-  if (initialLoading) {
-    return (
-      <View style={styles.container}>
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.contentContainer}
-        >
-          <Text style={styles.titulo}>Buscar Música</Text>
-
-          <View style={styles.searchContainer}>
-            <Ionicons name="search-outline" size={20} color="rgba(255,255,255,0.7)" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Busca álbumes o artistas..."
-              placeholderTextColor="rgba(255,255,255,0.5)"
-              value={searchQuery}
-              onChangeText={handleSearch}
-              returnKeyType="search"
-            />
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filtersContainer}
-            contentContainerStyle={styles.filtersContent}
-          >
-            {filters.map((filter) => (
-              <TouchableOpacity
-                key={filter.id}
-                style={[
-                  styles.filterChip,
-                  activeFilter === filter.id && styles.filterChipActive,
-                ]}
-                onPress={() => setActiveFilter(filter.id)}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    activeFilter === filter.id && styles.filterTextActive,
-                  ]}
-                >
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          <SearchSkeleton />
-        </ScrollView>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -759,7 +893,7 @@ export default function SearchScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#080808',
   },
   scrollView: {
     flex: 1,
@@ -769,10 +903,10 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   titulo: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 30,
+    marginBottom: 24,
     marginHorizontal: 20,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 1, height: 1 },
@@ -830,6 +964,67 @@ const styles = StyleSheet.create({
   },
   resultsContainer: {
     paddingHorizontal: 20,
+  },
+  // Estado vacío inicial
+  emptySearchState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 40,
+  },
+  emptySearchTitle: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 22,
+    fontWeight: '600',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  emptySearchSubtitle: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Iconos de sección con color
+  sectionIconDeezer: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(96,165,250,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  sectionIconLocal: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(74,222,128,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  // Tinte azul para cards de Deezer
+  deezerCard: {
+    borderColor: 'rgba(96,165,250,0.2)',
+  },
+  deezerOverlay: {
+    backgroundColor: 'rgba(10,20,50,0.45)',
+  },
+  // Tinte verde para cards locales
+  localCard: {
+    borderColor: 'rgba(74,222,128,0.2)',
+  },
+  localOverlay: {
+    backgroundColor: 'rgba(5,30,20,0.45)',
+  },
+  // Badges diferenciados
+  sourceBadgeDeezer: {
+    backgroundColor: 'rgba(30,58,138,0.6)',
+  },
+  sourceBadgeLocal: {
+    backgroundColor: 'rgba(5,46,22,0.6)',
   },
   sectionContainer: {
     marginBottom: 30,
@@ -991,7 +1186,7 @@ const styles = StyleSheet.create({
   artistCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 100,
+    height: 104,
     marginBottom: 15,
     borderRadius: 16,
     overflow: 'hidden',
@@ -1002,7 +1197,7 @@ const styles = StyleSheet.create({
   localArtistCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 110,
+    height: 104,
     marginBottom: 15,
     borderRadius: 16,
     overflow: 'hidden',
@@ -1024,12 +1219,12 @@ const styles = StyleSheet.create({
   artistInfo: {
     flex: 1,
     marginLeft: 20,
-    marginRight: 100,
+    marginRight: 90,
     zIndex: 2,
   },
   artistName: {
     color: 'white',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     marginBottom: 4,
     textShadowColor: 'rgba(0,0,0,0.7)',
@@ -1038,20 +1233,21 @@ const styles = StyleSheet.create({
   },
   artistFans: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 13,
+    fontSize: 12,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
+    flexShrink: 1,
   },
   artistImage: {
-    width: 75,
-    height: 75,
-    borderRadius: 37.5,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     position: 'absolute',
-    right: 15,
+    right: 12,
     zIndex: 2,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.4)',
   },
 
   // ESTILOS PARA GÉNEROS

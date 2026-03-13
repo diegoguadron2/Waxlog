@@ -3,18 +3,16 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { getRatingColor } from '../../shared/RatingBadge';
 
-const RatingSummary = ({ tracks }) => {
-  // Inicializar contadores para cada rango
+const RatingSummary = ({ tracks, dominantColor }) => {
   const ranges = [
     { min: 9, max: 10, label: '9-10', count: 0 },
     { min: 7, max: 8.9, label: '7-8', count: 0 },
     { min: 5, max: 6.9, label: '5-6', count: 0 },
     { min: 3, max: 4.9, label: '3-4', count: 0 },
     { min: 1, max: 2.9, label: '1-2', count: 0 },
-    { min: 0, max: 0, label: 'Sin calificar', count: 0 },
+    { min: 0, max: 0, label: 'Sin calif.', count: 0 },
   ];
 
-  // Contar canciones en cada rango
   tracks.forEach(track => {
     if (!track.rating || track.rating === 0) {
       ranges[5].count++;
@@ -31,7 +29,6 @@ const RatingSummary = ({ tracks }) => {
     }
   });
 
-  // Encontrar el máximo para las barras
   const maxCount = Math.max(...ranges.map(r => r.count), 1);
 
   return (
@@ -40,24 +37,17 @@ const RatingSummary = ({ tracks }) => {
       
       {ranges.map((range, index) => {
         const barWidth = (range.count / maxCount) * 100;
-        const barColor = index < 5 ? getRatingColor(range.min) : '#4B5563';
+        // Usar color de rating para rangos con calificación, dominantColor para sin calificar
+        const barColor = index < 5
+          ? getRatingColor(range.min)
+          : (dominantColor ? dominantColor + '80' : '#4B5563');
         
         return (
           <View key={range.label} style={styles.row}>
             <Text style={styles.rangeLabel}>{range.label}</Text>
-            
             <View style={styles.barContainer}>
-              <View 
-                style={[
-                  styles.bar, 
-                  { 
-                    width: `${barWidth}%`,
-                    backgroundColor: barColor,
-                  }
-                ]} 
-              />
+              <View style={[styles.bar, { width: `${barWidth}%`, backgroundColor: barColor }]} />
             </View>
-            
             <Text style={styles.countLabel}>{range.count}</Text>
           </View>
         );
@@ -87,7 +77,7 @@ const styles = StyleSheet.create({
   rangeLabel: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
-    width: 45,
+    width: 52,
     marginRight: 8,
   },
   barContainer: {

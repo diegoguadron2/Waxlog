@@ -10,7 +10,7 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
-  Animated, // 👈 IMPORTAR Animated
+  Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,13 +18,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ImageColors from 'react-native-image-colors';
 import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  runOnJS,
+} from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import deezerApi from '../services/deezerApi';
 import { executeDBOperation } from '../database/Index';
+import { getRatingColor } from '../utils/colors';
 
 const { width, height } = Dimensions.get('window');
 
-// Función mejorada para determinar el tipo de álbum
+// Determinar el tipo de álbum usando record_type de la API como fuente principal
 const getAlbumTypeFromData = (album) => {
+  // Prioridad 1: record_type viene directamente de Deezer, es la fuente más confiable
   if (album.record_type) {
     const type = album.record_type.toLowerCase();
     if (type === 'ep') return 'EP';
@@ -34,18 +45,11 @@ const getAlbumTypeFromData = (album) => {
     if (type === 'compilation') return 'Compilación';
   }
 
-  const title = album.title?.toLowerCase() || '';
-  const nb_tracks = album.nb_tracks || 0;
-
-  if (title.includes('ep') || title.includes('extended play')) return 'EP';
-  if (title.includes('single')) return 'Single';
-  if (title.includes('live')) return 'Live';
-  if (title.includes('remix')) return 'Remix';
-  if (title.includes('deluxe')) return 'Deluxe';
-  if (title.includes('anniversary') || title.includes('edition')) return 'Edición Especial';
-
+  // Prioridad 2: si no hay record_type (álbumes locales sin ese campo),
+  // usar nb_tracks como aproximación numérica objetiva
+  const nb_tracks = album.nb_tracks || album.total_tracks || 0;
   if (nb_tracks === 1) return 'Single';
-  if (nb_tracks <= 6 && nb_tracks > 1) return 'EP';
+  if (nb_tracks <= 6) return 'EP';
 
   return 'Álbum';
 };
@@ -58,11 +62,119 @@ const formatFans = (fans) => {
   return fans.toString();
 };
 
+// Animación 1 y 2: card con fade/slide de entrada y press feedback
+const AnimatedAlbumCard = ({ album, index, onPress, getRatingColor, formatDate, styles }) => {
+  // Animación 1: entrada escalonada
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(24);
+
+  useEffect(() => {
+    opacity.value = withDelay(index * 60, withTiming(1, { duration: 350 }));
+    translateY.value = withDelay(index * 60, withTiming(0, { duration: 350 }));
+  }, []);
+
+  // Animación 2: press feedback con spring
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  const handlePressIn = () => {
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+  };
+
+  return (
+    <Reanimated.View style={animatedStyle}>
+      <TouchableOpacity
+        style={styles.albumCard}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+      >
+        <Image
+          source={{ uri: album.cover_medium || album.cover }}
+          style={StyleSheet.absoluteFillObject}
+          blurRadius={15}
+          contentFit="cover"
+        />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.15)' }]} />
+
+        <View style={styles.albumCardContent}>
+          <Image
+            source={{ uri: album.cover_medium || album.cover }}
+            style={styles.albumCover}
+            contentFit="cover"
+          />
+          <View style={styles.albumInfo}>
+            <Text style={styles.albumTitle} numberOfLines={1}>
+              {album.title}
+            </Text>
+            <View style={styles.albumDetails}>
+              <Text style={styles.albumYear}>{formatDate(album.release_date)}</Text>
+              <Text style={styles.dot}>·</Text>
+              <Text style={styles.albumType}>{album.displayType}</Text>
+              {album.nb_tracks > 0 && (
+                <>
+                  <Text style={styles.dot}>·</Text>
+                  <Text style={styles.albumTracks}>
+                    {album.nb_tracks} {album.nb_tracks === 1 ? 'canción' : 'canciones'}
+                  </Text>
+                </>
+              )}
+            </View>
+            <View style={styles.albumFooter}>
+              {album.isDownloaded && (
+                <Ionicons name="checkmark-circle" size={16} color="#4ADE80" />
+              )}
+              {album.average_rating > 0 && (
+                <View style={[styles.ratingBadge, {
+                  borderColor: getRatingColor(album.average_rating) + '50',
+                  backgroundColor: getRatingColor(album.average_rating) + '18'
+                }]}>
+                  <Ionicons name="star" size={12} color={getRatingColor(album.average_rating)} />
+                  <Text style={[styles.ratingText, { color: getRatingColor(album.average_rating) }]}>
+                    {album.average_rating.toFixed(1)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Reanimated.View>
+  );
+};
+
 export default function ArtistScreen({ route, navigation }) {
   const { artist: initialArtist } = route.params;
 
   const [artist, setArtist] = useState(initialArtist);
   const [artistDetails, setArtistDetails] = useState(null);
+
+  // Si el artista llega sin imagen (ej. desde AlbumScreen), buscarla en la BD
+  useEffect(() => {
+    const hasPicture = initialArtist.picture_big || initialArtist.picture_medium || initialArtist.picture;
+    if (hasPicture) return;
+    executeDBOperation(async (db) => {
+      const row = await db.getFirstAsync(
+        'SELECT picture FROM artists WHERE deezer_id = ?',
+        [initialArtist.id.toString()]
+      );
+      if (row?.picture) {
+        setArtist(prev => ({ ...prev, picture_medium: row.picture }));
+      }
+    }).catch(() => {});
+  }, [initialArtist.id]);
   const [refreshing, setRefreshing] = useState(false);
   const [albumsLoading, setAlbumsLoading] = useState(false);
   const [relatedLoading, setRelatedLoading] = useState(false);
@@ -79,9 +191,20 @@ export default function ArtistScreen({ route, navigation }) {
   // 👇 ESTADOS PARA FILTROS
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'album', 'ep', 'single', 'live', 'compilation'
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [filterMenuPosition, setFilterMenuPosition] = useState({ top: 0, left: 0 });
+  const filterButtonRef = useRef(null);
 
-  // 👇 VALOR ANIMADO PARA EL SCROLL
+  // 👇 VALOR ANIMADO PARA EL SCROLL (parallax con Animated nativo)
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Animación 3: fade in del header al terminar de cargar
+  const headerOpacity = useSharedValue(0);
+  const headerTranslateY = useSharedValue(20);
+
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
 
   // 👇 ESTILOS ANIMADOS PARA LA IMAGEN (PARALLAX)
   const imageAnimatedStyle = {
@@ -154,7 +277,7 @@ export default function ArtistScreen({ route, navigation }) {
           setLocalArtistId(result.id);
         }
       } catch (error) {
-        console.error('Error cargando ID local del artista:', error);
+        if (__DEV__) console.error('Error cargando ID local del artista:', error);
       }
     };
 
@@ -165,45 +288,48 @@ export default function ArtistScreen({ route, navigation }) {
     };
   }, [artist.id]);
 
-  // Cargar datos del artista
-  useEffect(() => {
-    let isMounted = true;
-    
-    const loadArtistData = async () => {
-      try {
-        setLoading(true);
-        
-        const imageUrl = artist.picture_big || artist.picture_medium || artist.picture;
-        if (imageUrl && isMounted) {
-          await getImageColors(imageUrl);
-        }
+  // Cargar todos los datos del artista (detalles + álbumes)
+  const loadData = useCallback(async ({ showFullLoading = false } = {}) => {
+    if (!connectionChecked) return;
 
-        // Si hay conexión, obtener detalles completos del artista
-        if (isConnected) {
-          try {
-            const details = await deezerApi.getArtistById(artist.id);
-            if (isMounted) {
-              setArtistDetails(details);
-            }
-          } catch (error) {
-            console.log('Error cargando detalles del artista:', error);
-          }
-        }
-      } catch (error) {
-        console.error('Error cargando artista:', error);
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+    if (showFullLoading) setLoading(true);
+
+    try {
+      const imageUrl = artist.picture_big || artist.picture_medium || artist.picture;
+      if (imageUrl) {
+        await getImageColors(imageUrl);
       }
-    };
 
+      if (isConnected) {
+        try {
+          const details = await deezerApi.getArtistById(artist.id);
+          setArtistDetails(details);
+        } catch (error) {
+          if (__DEV__) console.log('Error cargando detalles del artista:', error);
+        }
+        await loadAllAlbums();
+      } else {
+        await loadLocalAlbumsOnly();
+      }
+    } catch (error) {
+      if (__DEV__) console.error('Error cargando artista:', error);
+    } finally {
+      if (showFullLoading) {
+        setLoading(false);
+        // Animación 3: fade in del header al terminar de cargar
+        headerOpacity.value = withTiming(1, { duration: 400 });
+        headerTranslateY.value = withTiming(0, { duration: 400 });
+      }
+    }
+  }, [artist.id, artist.picture_big, artist.picture_medium, artist.picture, isConnected, connectionChecked]);
+
+  useEffect(() => {
     if (connectionChecked) {
-      loadArtistData();
+      loadData({ showFullLoading: true });
     }
   }, [artist.id, isConnected, connectionChecked]);
 
-  // Cargar álbumes cuando el artista local y la conexión estén listos
+  // Cargar álbumes cuando cambia el ID local del artista
   useEffect(() => {
     if (connectionChecked) {
       if (isConnected) {
@@ -255,33 +381,14 @@ export default function ArtistScreen({ route, navigation }) {
           setBackgroundColor('#000000');
       }
     } catch (error) {
-      console.error('Error obteniendo colores:', error);
+      if (__DEV__) console.error('Error obteniendo colores:', error);
       setBackgroundColor('#000000');
     }
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    
-    // Recargar datos
-    const imageUrl = artist.picture_big || artist.picture_medium || artist.picture;
-    if (imageUrl) {
-      await getImageColors(imageUrl);
-    }
-
-    if (isConnected) {
-      try {
-        const details = await deezerApi.getArtistById(artist.id);
-        setArtistDetails(details);
-      } catch (error) {
-        console.log('Error cargando detalles del artista:', error);
-      }
-      
-      await loadAllAlbums();
-    } else {
-      await loadLocalAlbumsOnly();
-    }
-    
+    await loadData();
     setRefreshing(false);
   };
 
@@ -291,7 +398,7 @@ export default function ArtistScreen({ route, navigation }) {
     setAlbumsLoading(true);
     try {
       await executeDBOperation(async (db) => {
-        console.log('Cargando álbumes locales para artista ID:', localArtistId);
+
         const localAlbums = await db.getAllAsync(
           `SELECT a.*, 
                   COUNT(t.id) as total_tracks,
@@ -304,7 +411,7 @@ export default function ArtistScreen({ route, navigation }) {
           [localArtistId]
         );
 
-        console.log(`Encontrados ${localAlbums.length} álbumes locales`);
+
 
         const albumsList = localAlbums.map(album => ({
           ...album,
@@ -316,7 +423,7 @@ export default function ArtistScreen({ route, navigation }) {
         setFilteredAlbums(albumsList);
       });
     } catch (error) {
-      console.error('Error cargando álbumes locales:', error);
+      if (__DEV__) console.error('Error cargando álbumes locales:', error);
     } finally {
       setAlbumsLoading(false);
     }
@@ -349,56 +456,46 @@ export default function ArtistScreen({ route, navigation }) {
           }));
         }
 
-        // Luego agregar de API si hay conexión
+        // Con conexión: mostrar discografía completa de la API
+        // marcando cuáles están guardados en la DB
         if (isConnected) {
           try {
-            console.log('Cargando álbumes de API para artista:', artist.id);
             const apiAlbums = await deezerApi.getArtistAlbums(artist.id);
             const apiAlbumsList = (apiAlbums.data || []).map(album => {
-              const isDownloaded = albumsList.some(a => a.deezer_id === album.id.toString());
+              const localMatch = albumsList.find(a => a.deezer_id === album.id.toString());
               return {
                 ...album,
-                id: album.id,
                 deezer_id: album.id.toString(),
-                title: album.title,
                 cover: album.cover_medium || album.cover,
-                cover_medium: album.cover_medium,
-                release_date: album.release_date,
-                nb_tracks: album.nb_tracks,
-                record_type: album.record_type,
                 displayType: getAlbumTypeFromData(album),
-                isDownloaded,
+                isDownloaded: !!localMatch,
+                average_rating: localMatch?.average_rating || null,
                 sortDate: album.release_date ? new Date(album.release_date) : new Date(0),
               };
             });
 
-            console.log(`Encontrados ${apiAlbumsList.length} álbumes en API`);
-
-            // Combinar y eliminar duplicados
-            const combinedAlbums = [...albumsList, ...apiAlbumsList.filter(
-              api => !albumsList.some(local => local.deezer_id === api.id.toString())
-            )];
-
-            combinedAlbums.sort((a, b) => {
+            apiAlbumsList.sort((a, b) => {
               const dateA = a.release_date ? new Date(a.release_date) : new Date(0);
               const dateB = b.release_date ? new Date(b.release_date) : new Date(0);
               return dateB - dateA;
             });
 
-            setAlbums(combinedAlbums);
-            setFilteredAlbums(combinedAlbums);
+            setAlbums(apiAlbumsList);
+            setFilteredAlbums(apiAlbumsList);
           } catch (apiError) {
-            console.error('Error cargando álbumes de API:', apiError);
+            if (__DEV__) console.error('Error cargando álbumes de API:', apiError);
+            // Si falla la API, caer a los locales
             setAlbums(albumsList);
             setFilteredAlbums(albumsList);
           }
         } else {
+          // Sin conexión: solo los guardados en la DB
           setAlbums(albumsList);
           setFilteredAlbums(albumsList);
         }
       });
     } catch (error) {
-      console.error('Error cargando álbumes:', error);
+      if (__DEV__) console.error('Error cargando álbumes:', error);
       Alert.alert('Error', 'No se pudieron cargar los álbumes');
     } finally {
       setAlbumsLoading(false);
@@ -416,7 +513,7 @@ export default function ArtistScreen({ route, navigation }) {
       const relatedRes = await deezerApi.getRelatedArtists(artist.id);
       setRelated(relatedRes.data || []);
     } catch (error) {
-      console.error('Error cargando artistas relacionados:', error);
+      if (__DEV__) console.error('Error cargando artistas relacionados:', error);
     } finally {
       setRelatedLoading(false);
     }
@@ -440,6 +537,14 @@ export default function ArtistScreen({ route, navigation }) {
     return filters[activeFilter] || 'Filtrar';
   };
 
+  // 👇 MEDIR POSICIÓN DEL BOTÓN ANTES DE MOSTRAR EL MENÚ
+  const handleFilterPress = () => {
+    filterButtonRef.current?.measure((x, y, w, h, pageX, pageY) => {
+      setFilterMenuPosition({ top: pageY + h + 6, left: pageX });
+      setShowFilterMenu(true);
+    });
+  };
+
   // 👇 MENÚ DE FILTROS
   const renderFilterMenu = () => {
     if (!showFilterMenu) return null;
@@ -459,7 +564,7 @@ export default function ArtistScreen({ route, navigation }) {
         activeOpacity={1}
         onPress={() => setShowFilterMenu(false)}
       >
-        <View style={styles.filterMenu}>
+        <View style={[styles.filterMenu, { top: filterMenuPosition.top, left: filterMenuPosition.left }]}>
           {filterOptions.map(option => (
             <TouchableOpacity
               key={option.id}
@@ -568,44 +673,46 @@ export default function ArtistScreen({ route, navigation }) {
           />
         </View>
 
-        <Text style={styles.artistName} numberOfLines={2}>
-          {artist.name}
-        </Text>
+        <Reanimated.View style={headerAnimatedStyle}>
+          <Text style={styles.artistName} numberOfLines={2}>
+            {artist.name}
+          </Text>
 
-        {/* Estadísticas del artista */}
-        <View style={styles.statsContainer}>
-          {fansFormatted && (
-            <View style={styles.statItem}>
-              <Ionicons name="people" size={20} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.statValue}>{fansFormatted}</Text>
-              <Text style={styles.statLabel}>oyentes</Text>
-            </View>
-          )}
-          {albums.length > 0 && (
-            <View style={styles.statItem}>
-              <Ionicons name="musical-notes" size={20} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.statValue}>{albums.length}</Text>
-              <Text style={styles.statLabel}>discografía</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Géneros si existen */}
-        {artistDetails?.genres?.data && artistDetails.genres.data.length > 0 && (
-          <View style={styles.genresContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.genresScroll}
-            >
-              {artistDetails.genres.data.map((genre, index) => (
-                <View key={index} style={[styles.genreChip, { backgroundColor: backgroundColor + '40', borderColor: backgroundColor }]}>
-                  <Text style={styles.genreText}>{genre.name}</Text>
-                </View>
-              ))}
-            </ScrollView>
+          {/* Estadísticas del artista */}
+          <View style={styles.statsContainer}>
+            {fansFormatted && (
+              <View style={styles.statItem}>
+                <Ionicons name="people" size={20} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.statValue}>{fansFormatted}</Text>
+                <Text style={styles.statLabel}>oyentes</Text>
+              </View>
+            )}
+            {albums.length > 0 && (
+              <View style={styles.statItem}>
+                <Ionicons name="musical-notes" size={20} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.statValue}>{albums.length}</Text>
+                <Text style={styles.statLabel}>discografía</Text>
+              </View>
+            )}
           </View>
-        )}
+
+          {/* Géneros si existen */}
+          {artistDetails?.genres?.data && artistDetails.genres.data.length > 0 && (
+            <View style={styles.genresContainer}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.genresScroll}
+              >
+                {artistDetails.genres.data.map((genre, index) => (
+                  <View key={index} style={[styles.genreChip, { backgroundColor: backgroundColor + '40', borderColor: backgroundColor }]}>
+                    <Text style={styles.genreText}>{genre.name}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </Reanimated.View>
 
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -631,8 +738,9 @@ export default function ArtistScreen({ route, navigation }) {
             {/* Barra de filtros */}
             <View style={styles.filterBar}>
               <TouchableOpacity
+                ref={filterButtonRef}
                 style={styles.filterButton}
-                onPress={() => setShowFilterMenu(true)}
+                onPress={handleFilterPress}
               >
                 <Ionicons name="funnel-outline" size={16} color="rgba(255,255,255,0.7)" />
                 <Text style={styles.filterButtonText}>
@@ -658,10 +766,14 @@ export default function ArtistScreen({ route, navigation }) {
               </View>
             ) : filteredAlbums.length > 0 ? (
               <View>
-                {filteredAlbums.map((album) => (
-                  <TouchableOpacity
+                {filteredAlbums.map((album, index) => (
+                  <AnimatedAlbumCard
                     key={album.id || album.deezer_id}
-                    style={styles.albumCard}
+                    album={album}
+                    index={index}
+                    getRatingColor={getRatingColor}
+                    formatDate={formatDate}
+                    styles={styles}
                     onPress={() => navigation.navigate('Album', {
                       album: {
                         id: album.deezer_id || album.id,
@@ -672,60 +784,7 @@ export default function ArtistScreen({ route, navigation }) {
                       artistId: artist.id,
                       refresh: true
                     })}
-                  >
-                    <Image
-                      source={{ uri: album.cover_medium || album.cover }}
-                      style={StyleSheet.absoluteFillObject}
-                      blurRadius={15}
-                      contentFit="cover"
-                    />
-                    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
-
-                    <View style={styles.albumCardContent}>
-                      <Image
-                        source={{ uri: album.cover_medium || album.cover }}
-                        style={styles.albumCover}
-                        contentFit="cover"
-                      />
-                      <View style={styles.albumInfo}>
-                        <Text style={styles.albumTitle} numberOfLines={1}>
-                          {album.title}
-                        </Text>
-                        <View style={styles.albumDetails}>
-                          <Text style={styles.albumYear}>
-                            {formatDate(album.release_date)}
-                          </Text>
-                          <Text style={styles.albumType}>
-                            {album.displayType}
-                          </Text>
-                          {album.nb_tracks && (
-                            <>
-                              <Text style={styles.dot}>•</Text>
-                              <Text style={styles.albumTracks}>
-                                {album.nb_tracks} {album.nb_tracks === 1 ? 'canción' : 'canciones'}
-                              </Text>
-                            </>
-                          )}
-                        </View>
-                        <View style={styles.albumFooter}>
-                          {album.isDownloaded && (
-                            <View style={styles.downloadedBadge}>
-                              <Ionicons name="checkmark-circle" size={14} color="#4ADE80" />
-                              <Text style={styles.downloadedText}>En biblioteca</Text>
-                            </View>
-                          )}
-                          {album.average_rating > 0 && (
-                            <View style={styles.ratingBadge}>
-                              <Ionicons name="star" size={12} color="#FFD700" />
-                              <Text style={styles.ratingText}>
-                                {album.average_rating.toFixed(1)}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                  />
                 ))}
               </View>
             ) : (
@@ -783,19 +842,26 @@ export default function ArtistScreen({ route, navigation }) {
                     key={relatedArtist.id}
                     style={styles.relatedCard}
                     onPress={() => navigation.push('Artist', { artist: relatedArtist })}
+                    activeOpacity={0.75}
                   >
                     <Image
                       source={{ uri: relatedArtist.picture_medium }}
                       style={styles.relatedImage}
                       contentFit="cover"
                     />
+                    {/* Mejora 1: gradiente más fuerte y que cubre más área */}
                     <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.8)']}
+                      colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.85)']}
+                      locations={[0.4, 0.7, 1]}
                       style={styles.relatedGradient}
                     />
-                    <Text style={styles.relatedName} numberOfLines={2}>
-                      {relatedArtist.name}
-                    </Text>
+                    <View style={styles.relatedNameRow}>
+                      <Text style={styles.relatedName} numberOfLines={2}>
+                        {relatedArtist.name}
+                      </Text>
+                      {/* Mejora 3: ícono de flecha para indicar navegación */}
+                      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -976,8 +1042,6 @@ const styles = StyleSheet.create({
   },
   filterMenu: {
     position: 'absolute',
-    top: 320, // Ajusta según la posición de tu botón
-    left: 20,
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 8,
@@ -1061,9 +1125,9 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   albumCover: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
+    width: 88,
+    height: 88,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.2)',
   },
@@ -1109,28 +1173,15 @@ const styles = StyleSheet.create({
     marginTop: 6,
     gap: 12,
   },
-  downloadedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  downloadedText: {
-    color: '#4ADE80',
-    fontSize: 12,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,215,0,0.1)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.3)',
   },
   ratingText: {
-    color: '#FFD700',
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 4,
@@ -1141,14 +1192,14 @@ const styles = StyleSheet.create({
   relatedGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 10, // Mejora 2: gap entre cards en lugar de justifyContent space-between
   },
   relatedCard: {
-    width: (width - 48) / 2,
+    width: (width - 50) / 2,
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 0,
   },
   relatedImage: {
     width: '100%',
@@ -1159,19 +1210,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '50%',
+    height: '65%',
   },
-  relatedName: {
+  relatedNameRow: {
     position: 'absolute',
     bottom: 12,
     left: 12,
     right: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  relatedName: {
+    flex: 1,
     color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    fontSize: 15,
+    fontWeight: '700',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+    marginRight: 4,
   },
   noConnectionContainer: {
     alignItems: 'center',

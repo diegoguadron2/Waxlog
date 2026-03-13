@@ -7,7 +7,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { tabBarStyle } from '../navigation/AppNavigator';
+const TAB_BAR_STYLE = { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.8)', borderTopWidth: 0, elevation: 0, height: 70, paddingBottom: 10, paddingTop: 10 };
 import { useAlbumsByState } from '../hooks/useAlbumsByState';
 
 // Componentes
@@ -39,7 +39,7 @@ export default function ListenedScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       navigation.getParent()?.setOptions({
-        tabBarStyle: tabBarStyle
+        tabBarStyle: TAB_BAR_STYLE
       });
     }, [navigation])
   );
@@ -95,10 +95,12 @@ export default function ListenedScreen({ navigation }) {
         totalAlbums={totalCount}
         onAddPress={() => navigation.navigate('SaveAlbum')}
         title="Escuchados"
+          accentColor="#4ADE80"
       />
       <ControlsBar
         sortLabel={sortOptions.find(o => o.id === sortBy)?.label || 'Ordenar'}
         onSortPress={() => setShowSortMenu(!showSortMenu)}
+        accentColor="#4ADE80"
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
@@ -112,6 +114,7 @@ export default function ListenedScreen({ navigation }) {
           totalAlbums={0}
           onAddPress={() => navigation.navigate('SaveAlbum')}
           title="Escuchados"
+          accentColor="#4ADE80"
         />
         <View style={styles.controlsBar}>
           <View style={[styles.controlButton, styles.skeletonControl]} />

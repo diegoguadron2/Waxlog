@@ -70,7 +70,7 @@ const AlbumInfo = ({ albumDetails, tracks, albumRating, dominantColor }) => {
             {/* RESUMEN DE CALIFICACIONES - NUEVA SECCIÓN */}
             {ratedTracksCount > 0 && (
                 <View style={styles.section}>
-                    <RatingSummary tracks={tracks} />
+                    <RatingSummary tracks={tracks} dominantColor={dominantColor} />
                 </View>
             )}
 
