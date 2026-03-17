@@ -306,6 +306,7 @@ export default function AlbumScreen({ route, navigation }) {
             comment={albumComment}
             isSaved={isSaved}
             onSaveComment={handleSaveComment}
+            dominantColor={dominantColor}
           />
 
           {isSaved && (

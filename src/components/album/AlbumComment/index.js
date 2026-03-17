@@ -1,152 +1,216 @@
 import React, { useState } from 'react';
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
+    View, Text, TextInput,
+    TouchableOpacity, StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-/**
- * Componente AlbumComment
- * 
- * 
- * @param {Object} props
- * @param {string} props.comment
- * @param {boolean} props.isSaved 
- * @param {Function} props.onSaveComment 
- */
-const AlbumComment = ({ comment, isSaved, onSaveComment }) => {
+const AlbumComment = ({ comment, isSaved, onSaveComment, dominantColor }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [tempComment, setTempComment] = useState('');
 
     if (!isSaved) return null;
+
+    const accent = dominantColor || 'rgba(255,255,255,0.6)';
 
     const handleStartEdit = () => {
         setTempComment(comment || '');
         setIsEditing(true);
     };
 
-    const handleCancelEdit = () => {
-        setTempComment(comment || '');
+    const handleCancel = () => {
+        setTempComment('');
         setIsEditing(false);
     };
 
     const handleSave = async () => {
-        if (tempComment !== comment) {
-            const success = await onSaveComment(tempComment);
-            if (success) {
-                setIsEditing(false);
-            }
+        if (tempComment.trim() !== comment) {
+            const success = await onSaveComment(tempComment.trim());
+            if (success) setIsEditing(false);
         } else {
             setIsEditing(false);
         }
     };
 
+    // ── Modo edición ──────────────────────────────────────────────────────────
     if (isEditing) {
         return (
-            <View style={styles.container}>
+            <View style={styles.editContainer}>
+                <View style={styles.editHeader}>
+                    <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.4)" />
+                    <Text style={styles.editLabel}>Tu reseña</Text>
+                </View>
                 <TextInput
                     style={styles.input}
-                    placeholder="Escribe un comentario sobre el álbum..."
-                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    placeholder="¿Qué opinas de este álbum?"
+                    placeholderTextColor="rgba(255,255,255,0.2)"
                     value={tempComment}
                     onChangeText={setTempComment}
                     multiline
                     textAlignVertical="top"
+                    autoFocus
                 />
-                <View style={styles.buttonsContainer}>
-                    <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelButton}>
-                        <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <View style={styles.editActions}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+                        <Text style={styles.cancelText}>Cancelar</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-                        <Text style={styles.saveButtonText}>Guardar</Text>
+                    <TouchableOpacity
+                        style={[styles.saveBtn, { backgroundColor: accent + '25', borderColor: accent + '60' }]}
+                        onPress={handleSave}
+                    >
+                        <Ionicons name="checkmark" size={14} color={accent} />
+                        <Text style={[styles.saveText, { color: accent }]}>Guardar</Text>
                     </TouchableOpacity>
                 </View>
             </View>
         );
     }
 
+    // ── Con comentario ────────────────────────────────────────────────────────
     if (comment) {
         return (
-            <TouchableOpacity onPress={handleStartEdit} style={styles.container}>
-                <Text style={styles.label}>Comentario</Text>
+            <TouchableOpacity
+                style={styles.commentCard}
+                onPress={handleStartEdit}
+                activeOpacity={0.8}
+            >
+                {/* Comilla decorativa */}
+                <Text style={[styles.quoteChar, { color: accent + '40' }]}>"</Text>
                 <Text style={styles.commentText}>{comment}</Text>
+                <TouchableOpacity style={styles.editIconBtn} onPress={handleStartEdit}>
+                    <Ionicons name="pencil" size={13} color="rgba(255,255,255,0.35)" />
+                </TouchableOpacity>
             </TouchableOpacity>
         );
     }
 
+    // ── Sin comentario ────────────────────────────────────────────────────────
     return (
-        <TouchableOpacity onPress={handleStartEdit} style={[styles.container, styles.addContainer]}>
-            <Ionicons name="pencil" size={18} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.addText}>Agregar comentario</Text>
+        <TouchableOpacity style={styles.emptyContainer} onPress={handleStartEdit} activeOpacity={0.7}>
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color="rgba(255,255,255,0.3)" />
+            <Text style={styles.emptyText}>Agregar reseña del álbum</Text>
+            <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.2)" />
         </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        marginBottom: 24,
-    },
-    input: {
-        color: 'white',
-        fontSize: 16,
-        minHeight: 80,
-        textAlignVertical: 'top',
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.2)',
-        textShadowColor: 'rgba(0,0,0,0.5)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
-    },
-    buttonsContainer: {
+    // Estado con comentario
+    commentCard: {
+        marginBottom: 20,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 16,
+        padding: 14,
+        paddingTop: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        position: 'relative',
         flexDirection: 'row',
-        justifyContent: 'flex-end',
-        marginTop: 12,
+        alignItems: 'flex-start',
+        gap: 8,
     },
-    cancelButton: {
-        marginRight: 16,
-    },
-    cancelButtonText: {
-        color: 'rgba(255,255,255,0.6)',
-        textShadowColor: 'rgba(0,0,0,0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 1,
-    },
-    saveButton: {},
-    saveButtonText: {
-        color: '#9333EA',
-        fontWeight: '600',
-        textShadowColor: 'rgba(0,0,0,0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 1,
-    },
-    label: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 14,
-        marginBottom: 4,
-        textShadowColor: 'rgba(0,0,0,0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 1,
+    quoteChar: {
+        fontSize: 22,
+        fontWeight: '900',
+        lineHeight: 24,
+        marginTop: 1,
     },
     commentText: {
-        color: 'white',
-        fontSize: 16,
-        textShadowColor: 'rgba(0,0,0,0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 1,
+        flex: 1,
+        color: 'rgba(255,255,255,0.85)',
+        fontSize: 15,
+        lineHeight: 22,
+        fontStyle: 'italic',
+        textShadowColor: 'rgba(0,0,0,0.5)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 4,
+        paddingRight: 24,
     },
-    addContainer: {
+    editIconBtn: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        padding: 4,
+    },
+
+    // Estado vacío
+    emptyContainer: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 8,
+        marginBottom: 20,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.07)',
+        borderStyle: 'dashed',
     },
-    addText: {
-        color: 'rgba(255,255,255,0.5)',
-        marginLeft: 8,
-        textShadowColor: 'rgba(0,0,0,0.3)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 1,
+    emptyText: {
+        flex: 1,
+        color: 'rgba(255,255,255,0.35)',
+        fontSize: 14,
+        textShadowColor: 'rgba(0,0,0,0.5)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 3,
+    },
+
+    // Modo edición
+    editContainer: {
+        marginBottom: 20,
+    },
+    editHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 10,
+    },
+    editLabel: {
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: 12,
+        fontWeight: '600',
+        letterSpacing: 0.6,
+        textTransform: 'uppercase',
+    },
+    input: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 14,
+        padding: 14,
+        color: 'white',
+        fontSize: 15,
+        lineHeight: 22,
+        minHeight: 100,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        marginBottom: 10,
+    },
+    editActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+    },
+    cancelBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 10,
+    },
+    cancelText: {
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    saveBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 10,
+        borderWidth: 1,
+    },
+    saveText: {
+        fontSize: 14,
+        fontWeight: '700',
     },
 });
 

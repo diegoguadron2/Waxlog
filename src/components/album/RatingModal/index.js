@@ -1,395 +1,357 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View,
-    Text,
-    ScrollView,
-    TouchableOpacity,
-    TextInput,
-    Modal,
-    StyleSheet,
-    Dimensions,
+    View, Text, TouchableOpacity, TextInput,
+    Modal, StyleSheet, Dimensions, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withSpring,
-    withTiming,
-    withSequence,
-    interpolate,
-    runOnJS,
-    Easing
+    useSharedValue, useAnimatedStyle,
+    withSpring, withTiming, withSequence, Easing,
 } from 'react-native-reanimated';
 import BlurView from '../../shared/BlurView';
 import { getRatingColor, getDecimalColor } from '../../shared/RatingBadge';
 
 const { width, height } = Dimensions.get('window');
+const MODAL_WIDTH = width - 40;
+const BTN = (MODAL_WIDTH - 48 - 36) / 5; // 5 columnas con padding y gaps
 
-// Componente de botón animado para números
-const AnimatedNumberButton = ({ number, selected, onPress, color }) => {
+// ─── Botón numérico animado ───────────────────────────────────────────────────
+const NumBtn = ({ value, label, selected, onPress, color }) => {
     const scale = useSharedValue(1);
-    const opacity = useSharedValue(1);
 
     const handlePress = () => {
         scale.value = withSequence(
-            withSpring(1.2, { damping: 8, stiffness: 150 }),
-            withSpring(1, { damping: 8, stiffness: 150 })
+            withSpring(0.88, { damping: 10, stiffness: 300 }),
+            withSpring(1,    { damping: 10, stiffness: 300 })
         );
-        opacity.value = withSequence(
-            withTiming(0.7, { duration: 50 }),
-            withTiming(1, { duration: 100 })
-        );
-
         onPress();
     };
 
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-        opacity: opacity.value,
-    }));
+    const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
     return (
-        <Animated.View style={animatedStyle}>
+        <Animated.View style={anim}>
             <TouchableOpacity
                 onPress={handlePress}
                 style={[
-                    styles.ratingNumberButton,
-                    { backgroundColor: color + '20' },
-                    selected && {
-                        backgroundColor: color,
-                        borderColor: 'white',
-                        borderWidth: 2
-                    }
+                    styles.numBtn,
+                    { width: BTN, height: BTN, backgroundColor: color + '18' },
+                    selected && { backgroundColor: color, borderColor: color },
                 ]}
             >
-                <Text style={[
-                    styles.ratingNumberText,
-                    { color: color },
-                    selected && styles.ratingNumberTextSelected
-                ]}>
-                    {number}
+                <Text style={[styles.numText, { color: selected ? '#000' : color }]}>
+                    {label ?? value}
                 </Text>
             </TouchableOpacity>
         </Animated.View>
     );
 };
 
-// Componente de texto animado para el preview
-const AnimatedPreview = ({ value, color }) => {
+// ─── Preview animado ──────────────────────────────────────────────────────────
+const Preview = ({ value, color }) => {
     const scale = useSharedValue(1);
 
     useEffect(() => {
         scale.value = withSequence(
-            withSpring(1.2, { damping: 10 }),
-            withSpring(1, { damping: 10 })
+            withSpring(1.15, { damping: 8 }),
+            withSpring(1,    { damping: 8 })
         );
     }, [value]);
 
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: scale.value }],
-    }));
+    const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
     return (
-        <Animated.View style={animatedStyle}>
-            <Text style={[styles.previewValue, { color }]}>
-                {value}
-            </Text>
+        <Animated.View style={anim}>
+            <Text style={[styles.previewNum, { color }]}>{value}</Text>
         </Animated.View>
     );
 };
 
-// Componente principal
+// ─── Modal principal ──────────────────────────────────────────────────────────
 const RatingModal = ({ visible, onClose, onSave, currentRating, trackTitle }) => {
-    const [selectedRating, setSelectedRating] = useState(5);
-    const [decimal, setDecimal] = useState('0');
+    const [integer, setInteger] = useState(5);
+    const [decimal, setDecimal] = useState(0);
     const [comment, setComment] = useState('');
 
-    const modalScale = useSharedValue(0);
-    const modalOpacity = useSharedValue(0);
+    const slideY  = useSharedValue(60);
+    const opacity = useSharedValue(0);
 
     useEffect(() => {
         if (visible) {
-            modalScale.value = withTiming(1, {
-                duration: 50, 
-                easing: Easing.linear
-            });
-            modalOpacity.value = withTiming(1, {
-                duration: 50,
-                easing: Easing.linear
-            });
+            slideY.value  = withSpring(0,  { damping: 18, stiffness: 200 });
+            opacity.value = withTiming(1,  { duration: 180, easing: Easing.out(Easing.ease) });
 
             if (currentRating) {
-                setSelectedRating(Math.floor(currentRating));
-                setDecimal(Math.round((currentRating - Math.floor(currentRating)) * 10).toString());
+                setInteger(Math.floor(currentRating));
+                setDecimal(Math.round((currentRating - Math.floor(currentRating)) * 10));
             } else {
-                setSelectedRating(5);
-                setDecimal('0');
+                setInteger(5);
+                setDecimal(0);
             }
             setComment('');
         } else {
-            modalScale.value = withTiming(0, { 
-                duration: 30 
-            });
-            modalOpacity.value = withTiming(0, { 
-                duration: 30 
-            });
+            slideY.value  = withTiming(60, { duration: 150 });
+            opacity.value = withTiming(0,  { duration: 150 });
         }
     }, [visible, currentRating]);
 
-    const finalRating = selectedRating + (parseInt(decimal) / 10);
-    const ratingColor = getDecimalColor(finalRating);
-
-    const handleSave = () => {
-        onSave(finalRating, comment);
-        onClose();
-    };
-
-    const modalAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: modalScale.value }],
-        opacity: modalOpacity.value,
+    const backdropAnim = useAnimatedStyle(() => ({ opacity: opacity.value }));
+    const cardAnim     = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+        transform: [{ translateY: slideY.value }],
     }));
 
-    const containerAnimatedStyle = useAnimatedStyle(() => ({
-        opacity: modalOpacity.value,
-    }));
+    const finalRating  = integer === 10 ? 10 : integer + decimal / 10;
+    const ratingColor  = getDecimalColor(finalRating);
+    const displayValue = integer === 10 ? '10' : `${integer}.${decimal}`;
+
+    const DECIMALS = integer === 10 ? [0] : [0,1,2,3,4,5,6,7,8,9];
 
     return (
         <Modal visible={visible} transparent animationType="none">
-            <Animated.View style={[styles.modalContainer, containerAnimatedStyle]}>
-                <BlurView intensity={30} style={StyleSheet.absoluteFillObject} />
-                <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} />
+            <KeyboardAvoidingView
+                style={styles.root}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+                {/* Backdrop */}
+                <Animated.View style={[StyleSheet.absoluteFillObject, styles.backdrop, backdropAnim]}>
+                    <BlurView intensity={25} style={StyleSheet.absoluteFillObject} />
+                </Animated.View>
+                <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
 
-                <Animated.View style={[styles.modalContent, modalAnimatedStyle]}>
-                    <ScrollView
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.modalScrollContent}
-                    >
-                        <View style={styles.modalHeader}>
-                            <View>
-                                <Text style={styles.modalTitle} numberOfLines={1}>
-                                    {trackTitle}
-                                </Text>
-                                <Text style={styles.modalSubtitle}>
-                                    Calificar canción
-                                </Text>
-                            </View>
-                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                                <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
-                            </TouchableOpacity>
+                {/* Card */}
+                <Animated.View style={[styles.card, cardAnim]}>
+
+                    {/* Header con preview integrado */}
+                    <View style={[styles.header, { borderBottomColor: ratingColor + '30' }]}>
+                        <View style={styles.headerLeft}>
+                            <Text style={styles.trackName} numberOfLines={1}>{trackTitle}</Text>
+                            <Text style={styles.subtitle}>Calificar canción</Text>
                         </View>
+                        {/* Preview de nota en el header */}
+                        <View style={styles.headerRight}>
+                            <Preview value={displayValue} color={ratingColor} />
+                        </View>
+                        <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+                            <Ionicons name="close" size={18} color="rgba(255,255,255,0.5)" />
+                        </TouchableOpacity>
+                    </View>
 
-                        <Text style={styles.modalLabel}>Número</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.ratingScroll}
-                            contentContainerStyle={styles.ratingContentContainer}
-                        >
-                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                                <AnimatedNumberButton
-                                    key={num}
-                                    number={num}
-                                    selected={selectedRating === num}
-                                    onPress={() => setSelectedRating(num)}
-                                    color={getRatingColor(num)}
+                    <View style={styles.body}>
+                        {/* Grid 5×2 de números */}
+                        <Text style={styles.label}>Nota</Text>
+                        <View style={styles.numGrid}>
+                            {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                                <NumBtn
+                                    key={n}
+                                    value={n}
+                                    label={String(n)}
+                                    selected={integer === n}
+                                    onPress={() => { setInteger(n); if (n === 10) setDecimal(0); }}
+                                    color={getRatingColor(n)}
                                 />
                             ))}
-                        </ScrollView>
+                        </View>
 
-                        <Text style={styles.modalLabel}>Decimal</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            style={styles.ratingScroll}
-                            contentContainerStyle={styles.ratingContentContainer}
-                        >
-                            {selectedRating === 10 ? (
-                                <AnimatedNumberButton
-                                    number=".0"
-                                    selected={decimal === '0'}
-                                    onPress={() => setDecimal('0')}
-                                    color={ratingColor}
-                                />
-                            ) : (
-                                [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                                    <AnimatedNumberButton
-                                        key={num}
-                                        number={`.${num}`}
-                                        selected={decimal === num.toString()}
-                                        onPress={() => setDecimal(num.toString())}
-                                        color={ratingColor}
-                                    />
-                                ))
-                            )}
-                        </ScrollView>
+                        {/* Decimales — fila horizontal compacta */}
+                        {integer < 10 && (
+                            <>
+                                <Text style={styles.label}>Decimal</Text>
+                                <View style={styles.decimalRow}>
+                                    {DECIMALS.map(d => (
+                                        <TouchableOpacity
+                                            key={d}
+                                            style={[
+                                                styles.decBtn,
+                                                decimal === d && { backgroundColor: ratingColor, borderColor: ratingColor },
+                                            ]}
+                                            onPress={() => setDecimal(d)}
+                                        >
+                                            <Text style={[
+                                                styles.decText,
+                                                { color: decimal === d ? '#000' : ratingColor },
+                                            ]}>
+                                                .{d}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
 
-                        <Text style={styles.modalLabel}>Comentario (opcional)</Text>
+                        {/* Comentario */}
+                        <Text style={styles.label}>Comentario <Text style={styles.optional}>(opcional)</Text></Text>
                         <TextInput
                             style={styles.commentInput}
-                            placeholder="Escribe un comentario sobre la canción..."
-                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            placeholder="¿Qué opinas de esta canción?"
+                            placeholderTextColor="rgba(255,255,255,0.25)"
                             value={comment}
                             onChangeText={setComment}
                             multiline
-                            numberOfLines={4}
+                            numberOfLines={3}
                             textAlignVertical="top"
                         />
 
-                        <View style={[styles.previewContainer, { borderColor: ratingColor + '40' }]}>
-                            <Text style={styles.previewLabel}>Nota final</Text>
-                            <AnimatedPreview
-                                value={finalRating.toFixed(1)}
-                                color={ratingColor}
-                            />
-                        </View>
-
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
-                                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                        {/* Botones */}
+                        <View style={styles.btnRow}>
+                            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+                                <Text style={styles.cancelText}>Cancelar</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-                                <Text style={styles.saveButtonText}>Guardar</Text>
+                            <TouchableOpacity
+                                style={[styles.saveBtn, { backgroundColor: ratingColor }]}
+                                onPress={() => { onSave(finalRating, comment); onClose(); }}
+                            >
+                                <Ionicons name="checkmark" size={18} color="#000" />
+                                <Text style={styles.saveText}>Guardar</Text>
                             </TouchableOpacity>
                         </View>
-                    </ScrollView>
+                    </View>
                 </Animated.View>
-            </Animated.View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
-    modalContainer: {
+    root: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+        paddingBottom: 24,
     },
-    modalContent: {
-        backgroundColor: 'rgba(0,0,0,0.8)',
+    backdrop: {
+        backgroundColor: 'rgba(0,0,0,0.6)',
+    },
+    card: {
+        marginHorizontal: 16,
+        backgroundColor: '#111',
         borderRadius: 24,
-        width: width - 40,
-        maxHeight: height * 0.8,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
         overflow: 'hidden',
     },
-    modalScrollContent: {
-        padding: 24,
-    },
-    modalHeader: {
+
+    // Header
+    header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 20,
+        alignItems: 'center',
+        padding: 20,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        gap: 10,
     },
-    modalTitle: {
+    headerLeft: { flex: 1 },
+    trackName: {
         color: 'white',
-        fontSize: 20,
-        fontWeight: '600',
-        marginBottom: 4,
-        maxWidth: width - 120,
+        fontSize: 17,
+        fontWeight: '700',
+        marginBottom: 2,
     },
-    modalSubtitle: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 14,
+    subtitle: {
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: 12,
     },
-    closeButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+    headerRight: {
         alignItems: 'center',
         justifyContent: 'center',
+        minWidth: 70,
     },
-    modalLabel: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 14,
-        fontWeight: '500',
-        marginBottom: 12,
+    previewNum: {
+        fontSize: 42,
+        fontWeight: '800',
+        letterSpacing: -1,
     },
-    ratingScroll: {
+    closeBtn: {
+        width: 32, height: 32, borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        alignItems: 'center', justifyContent: 'center',
+    },
+
+    // Body
+    body: { padding: 20 },
+    label: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+        marginBottom: 10,
+    },
+    optional: {
+        color: 'rgba(255,255,255,0.25)',
+        fontWeight: '400',
+        textTransform: 'none',
+        letterSpacing: 0,
+    },
+
+    // Grid números
+    numGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
         marginBottom: 20,
     },
-    ratingContentContainer: {
-        paddingHorizontal: 4,
-        gap: 8,
-    },
-    ratingNumberButton: {
-        width: 60,
-        height: 60,
-        borderRadius: 16,
+    numBtn: {
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    numText: {
+        fontSize: 17,
+        fontWeight: '700',
+    },
+
+    // Decimales
+    decimalRow: {
+        flexDirection: 'row',
+        gap: 6,
+        marginBottom: 20,
+        flexWrap: 'wrap',
+    },
+    decBtn: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
+        minWidth: 44,
+        alignItems: 'center',
     },
-    ratingNumberText: {
-        fontSize: 18,
-        fontWeight: '600',
+    decText: {
+        fontSize: 14,
+        fontWeight: '700',
     },
-    ratingNumberTextSelected: {
-        color: 'white',
-    },
+
+    // Comentario
     commentInput: {
         backgroundColor: 'rgba(255,255,255,0.05)',
         borderRadius: 12,
-        padding: 16,
+        padding: 14,
         color: 'white',
         fontSize: 14,
-        minHeight: 100,
+        minHeight: 80,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255,255,255,0.08)',
         marginBottom: 20,
     },
-    previewContainer: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 16,
-        padding: 16,
-        alignItems: 'center',
-        borderWidth: 1,
-        marginBottom: 20,
-    },
-    previewLabel: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 13,
-        marginBottom: 4,
-    },
-    previewValue: {
-        fontSize: 48,
-        fontWeight: 'bold',
-    },
-    modalButtons: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 4,
-    },
-    cancelButton: {
-        flex: 1,
-        paddingVertical: 16,
-        borderRadius: 12,
-        backgroundColor: 'transparent',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    cancelButtonText: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    saveButton: {
-        flex: 1,
-        paddingVertical: 16,
-        borderRadius: 12,
-        backgroundColor: 'transparent',
+
+    // Botones
+    btnRow: { flexDirection: 'row', gap: 10 },
+    cancelBtn: {
+        flex: 1, paddingVertical: 14, borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center',
     },
-    saveButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '600',
+    cancelText: { color: 'rgba(255,255,255,0.6)', fontSize: 15, fontWeight: '600' },
+    saveBtn: {
+        flex: 2, paddingVertical: 14, borderRadius: 14,
+        flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'center', gap: 8,
     },
+    saveText: { color: '#000', fontSize: 15, fontWeight: '800' },
 });
 
 export default RatingModal;
