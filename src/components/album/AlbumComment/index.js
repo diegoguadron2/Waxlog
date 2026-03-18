@@ -74,8 +74,6 @@ const AlbumComment = ({ comment, isSaved, onSaveComment, dominantColor }) => {
                 onPress={handleStartEdit}
                 activeOpacity={0.8}
             >
-                {/* Comilla decorativa */}
-                <Text style={[styles.quoteChar, { color: accent + '40' }]}>"</Text>
                 <Text style={styles.commentText}>{comment}</Text>
                 <TouchableOpacity style={styles.editIconBtn} onPress={handleStartEdit}>
                     <Ionicons name="pencil" size={13} color="rgba(255,255,255,0.35)" />
@@ -98,32 +96,18 @@ const styles = StyleSheet.create({
     // Estado con comentario
     commentCard: {
         marginBottom: 20,
-        backgroundColor: 'rgba(255,255,255,0.04)',
+        backgroundColor: 'rgba(0,0,0,0.35)',
         borderRadius: 16,
         padding: 14,
-        paddingTop: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        borderColor: 'rgba(255,255,255,0.12)',
         position: 'relative',
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        gap: 8,
-    },
-    quoteChar: {
-        fontSize: 22,
-        fontWeight: '900',
-        lineHeight: 24,
-        marginTop: 1,
     },
     commentText: {
-        flex: 1,
-        color: 'rgba(255,255,255,0.85)',
-        fontSize: 15,
-        lineHeight: 22,
-        fontStyle: 'italic',
-        textShadowColor: 'rgba(0,0,0,0.5)',
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 4,
+        color: 'white',
+        fontSize: 16,
+        lineHeight: 24,
+        fontWeight: '500',
         paddingRight: 24,
     },
     editIconBtn: {
@@ -142,17 +126,14 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 16,
         borderRadius: 14,
+        backgroundColor: 'rgba(0,0,0,0.3)',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.07)',
-        borderStyle: 'dashed',
+        borderColor: 'rgba(255,255,255,0.12)',
     },
     emptyText: {
         flex: 1,
-        color: 'rgba(255,255,255,0.35)',
+        color: 'rgba(255,255,255,0.7)',
         fontSize: 14,
-        textShadowColor: 'rgba(0,0,0,0.5)',
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 3,
     },
 
     // Modo edición

@@ -222,6 +222,7 @@ export default function ToListenScreen({ navigation }) {
       album: { id: album.deezer_id, title: album.title, cover: album.cover },
       artistName: album.artist_name,
       artistId: album.artist_deezer_id,
+      localId: album.id,
       refresh: true,
       fromScreen: 'ToListen',
     });

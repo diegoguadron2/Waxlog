@@ -25,7 +25,6 @@ const LibraryHeader = ({
     { name: 'Inicio', screen: 'Home', icon: 'home-outline' },
     { name: 'Listas', screen: 'Lists', icon: 'list-outline' },
     { name: 'Géneros', screen: 'ArtistsAlbums', icon: 'mic-outline' },
-    { name: 'Buscar', screen: 'Search', icon: 'search-outline' },
     { name: 'Agregar álbum', screen: 'SaveAlbum', icon: 'add-circle-outline' },
     { name: 'Configuración', screen: 'Settings', icon: 'settings-outline' },
   ];
@@ -59,13 +58,21 @@ const LibraryHeader = ({
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          ref={menuButtonRef}
-          onPress={openMenu}
-          style={styles.menuButton}
-        >
-          <Ionicons name="menu" size={28} color="white" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Search')}
+            style={styles.iconButton}
+          >
+            <Ionicons name="search" size={22} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            ref={menuButtonRef}
+            onPress={openMenu}
+            style={styles.iconButton}
+          >
+            <Ionicons name="menu" size={28} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Modal
@@ -106,19 +113,28 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: PADDING_HORIZONTAL,
     paddingTop: 60,
     paddingBottom: 20,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  iconButton: {
+    padding: 6,
   },
   menuButton: {
     padding: 4,
   },
   headerTitle: {
     color: 'white',
-    fontSize: 28,
-    fontWeight: '300',
-    letterSpacing: 1,
+    fontSize: 22,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
     fontSize: 13,

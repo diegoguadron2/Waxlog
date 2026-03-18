@@ -51,6 +51,7 @@ export default function ListeningScreen({ navigation }) {
       },
       artistName: album.artist_name,
       artistId: album.artist_deezer_id,
+      localId: album.id,
       refresh: true,
       fromScreen: 'Listening',
     });

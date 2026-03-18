@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View, Text, TouchableOpacity,
     Modal, Alert, StyleSheet, Dimensions,
@@ -6,41 +6,62 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
     useSharedValue, useAnimatedStyle,
-    withSpring, withTiming, Easing,
+    withTiming, runOnJS, Easing,
 } from 'react-native-reanimated';
 import BlurView from '../../shared/BlurView';
 
 const { width, height } = Dimensions.get('window');
 
 const STATES = [
-    { id: 'listened', label: 'Escuchado',    icon: 'checkmark-circle', color: '#4ADE80' },
-    { id: 'listening', label: 'Escuchando',  icon: 'headset',          color: '#60A5FA' },
-    { id: 'to_listen', label: 'Por escuchar', icon: 'time',            color: '#FBBF24' },
+    { id: 'listened',  label: 'Escuchado',    icon: 'checkmark-circle', color: '#4ADE80' },
+    { id: 'listening', label: 'Escuchando',   icon: 'headset',          color: '#60A5FA' },
+    { id: 'to_listen', label: 'Por escuchar', icon: 'time',             color: '#FBBF24' },
 ];
+
+const EASE_OUT = Easing.out(Easing.ease);
 
 const StateSelector = ({
     visible, onClose, onSelect,
-    onToggleFavorite, onDelete, onRefresh,
-    currentState, isFavorite,
+    onToggleFavorite, onDelete, onShare,
+    currentState, isFavorite, isSharing,
 }) => {
-    const translateY = useSharedValue(400);
+    const translateY = useSharedValue(300);
     const opacity    = useSharedValue(0);
+    const [selectedFeedback, setSelectedFeedback] = useState(null);
 
+    // Animación de entrada/salida
     useEffect(() => {
         if (visible) {
-            opacity.value    = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
-            translateY.value = withSpring(0, { damping: 20, stiffness: 200 });
-        } else {
-            opacity.value    = withTiming(0, { duration: 180 });
-            translateY.value = withTiming(400, { duration: 220 });
+            // Entrada suave sin rebote
+            opacity.value    = withTiming(1, { duration: 180, easing: EASE_OUT });
+            translateY.value = withTiming(0, { duration: 260, easing: EASE_OUT });
+            setSelectedFeedback(null);
         }
     }, [visible]);
 
     const backdropStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
     const sheetStyle    = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
 
+    // Cerrar con animación de salida
+    const closeWithAnimation = (callback) => {
+        opacity.value    = withTiming(0, { duration: 160, easing: EASE_OUT });
+        translateY.value = withTiming(300, { duration: 200, easing: EASE_OUT },
+            (finished) => { if (finished) runOnJS(onClose)(); }
+        );
+        if (callback) callback();
+    };
+
+    // Seleccionar estado con feedback visual antes de cerrar
+    const handleSelectState = (stateId) => {
+        if (stateId === currentState) { closeWithAnimation(); return; }
+        // Flash de feedback — mostrar estado seleccionado brevemente
+        setSelectedFeedback(stateId);
+        onSelect(stateId);
+        setTimeout(() => closeWithAnimation(), 320);
+    };
+
     const handleDelete = () => {
-        onClose();
+        closeWithAnimation();
         setTimeout(() => {
             Alert.alert(
                 'Eliminar álbum',
@@ -63,16 +84,14 @@ const StateSelector = ({
             </Animated.View>
             <TouchableOpacity
                 style={StyleSheet.absoluteFillObject}
-                onPress={onClose}
+                onPress={() => closeWithAnimation()}
                 activeOpacity={1}
             />
 
             {/* Sheet */}
             <Animated.View style={[styles.sheet, sheetStyle]}>
-                {/* Handle */}
                 <View style={styles.handle} />
 
-                {/* Estado actual — pill en el header */}
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.headerTitle}>Opciones del álbum</Text>
@@ -85,32 +104,40 @@ const StateSelector = ({
                             </View>
                         )}
                     </View>
-                    <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+                    <TouchableOpacity style={styles.closeBtn} onPress={() => closeWithAnimation()}>
                         <Ionicons name="close" size={18} color="rgba(255,255,255,0.5)" />
                     </TouchableOpacity>
                 </View>
 
-                {/* Estados — 3 cards horizontales */}
+                {/* Estados — 3 cards con feedback */}
                 <View style={styles.statesRow}>
                     {STATES.map(s => {
-                        const active = currentState === s.id;
+                        const active   = currentState === s.id;
+                        const feedback = selectedFeedback === s.id;
                         return (
                             <TouchableOpacity
                                 key={s.id}
                                 style={[
                                     styles.stateCard,
-                                    active && { borderColor: s.color, backgroundColor: s.color + '15' },
+                                    active    && { borderColor: s.color, backgroundColor: s.color + '15' },
+                                    feedback  && { borderColor: s.color, backgroundColor: s.color + '35' },
                                 ]}
-                                onPress={() => { onSelect(s.id); onClose(); }}
-                                activeOpacity={0.75}
+                                onPress={() => handleSelectState(s.id)}
+                                activeOpacity={0.8}
                             >
-                                <View style={[styles.stateIconWrap, { backgroundColor: s.color + (active ? '30' : '15') }]}>
-                                    <Ionicons name={s.icon} size={22} color={s.color} />
+                                <View style={[styles.stateIconWrap, {
+                                    backgroundColor: s.color + (active || feedback ? '35' : '15'),
+                                }]}>
+                                    <Ionicons
+                                        name={feedback ? 'checkmark-circle' : s.icon}
+                                        size={22}
+                                        color={s.color}
+                                    />
                                 </View>
-                                <Text style={[styles.stateLabel, active && { color: 'white', fontWeight: '700' }]}>
-                                    {s.label}
+                                <Text style={[styles.stateLabel, (active || feedback) && { color: 'white', fontWeight: '700' }]}>
+                                    {feedback ? '¡Listo!' : s.label}
                                 </Text>
-                                {active && (
+                                {(active || feedback) && (
                                     <View style={[styles.activeCheck, { backgroundColor: s.color }]}>
                                         <Ionicons name="checkmark" size={10} color="#000" />
                                     </View>
@@ -122,10 +149,9 @@ const StateSelector = ({
 
                 <View style={styles.divider} />
 
-                {/* Acciones secundarias */}
                 <TouchableOpacity
                     style={styles.actionRow}
-                    onPress={() => { onToggleFavorite(); onClose(); }}
+                    onPress={() => { onToggleFavorite(); closeWithAnimation(); }}
                 >
                     <View style={[styles.actionIcon, {
                         backgroundColor: isFavorite ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.06)',
@@ -149,20 +175,23 @@ const StateSelector = ({
 
                 <TouchableOpacity
                     style={styles.actionRow}
-                    onPress={() => { onRefresh(); onClose(); }}
+                    onPress={() => { closeWithAnimation(); setTimeout(onShare, 300); }}
+                    disabled={isSharing}
                 >
-                    <View style={[styles.actionIcon, { backgroundColor: 'rgba(147,51,234,0.12)' }]}>
-                        <Ionicons name="cloud-download-outline" size={20} color="#A78BFA" />
+                    <View style={[styles.actionIcon, { backgroundColor: 'rgba(99,102,241,0.12)' }]}>
+                        <Ionicons name="share-social-outline" size={20} color="#818CF8" />
                     </View>
                     <View style={styles.actionTextWrap}>
-                        <Text style={styles.actionLabel}>Actualizar información</Text>
-                        <Text style={styles.actionSub}>Sincronizar con Deezer</Text>
+                        <Text style={styles.actionLabel}>
+                            {isSharing ? 'Generando imagen...' : 'Compartir álbum'}
+                        </Text>
+                        <Text style={styles.actionSub}>Comparte tu reseña como imagen</Text>
                     </View>
+                    {isSharing && <Ionicons name="hourglass-outline" size={16} color="rgba(255,255,255,0.3)" />}
                 </TouchableOpacity>
 
                 <View style={styles.divider} />
 
-                {/* Eliminar */}
                 <TouchableOpacity style={styles.actionRow} onPress={handleDelete}>
                     <View style={[styles.actionIcon, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
                         <Ionicons name="trash-outline" size={20} color="#f87171" />
@@ -173,7 +202,6 @@ const StateSelector = ({
                     </View>
                 </TouchableOpacity>
 
-                {/* Safe area */}
                 <View style={{ height: 28 }} />
             </Animated.View>
         </Modal>

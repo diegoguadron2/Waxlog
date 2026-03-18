@@ -6,10 +6,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text,
-  Animated, 
+  Animated,
+  Easing,
 } from 'react-native';
 import ImageColors from 'react-native-image-colors';
 import { Image } from 'expo-image';
+import ViewShot from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { useAlbumData } from '../hooks/useAlbumData';
 import { Ionicons } from '@expo/vector-icons';
 import AlbumHeader from '../components/album/AlbumHeader';
@@ -18,6 +21,7 @@ import TracksList from '../components/album/TracksList';
 import AlbumInfo from '../components/album/AlbumInfo';
 import RatingModal from '../components/album/RatingModal';
 import StateSelector from '../components/album/StateSelector';
+import ShareCard from '../components/album/Sharecard';
 
 const { width, height } = Dimensions.get('window');
 
@@ -48,7 +52,7 @@ const AlbumSkeleton = () => (
 );
 
 export default function AlbumScreen({ route, navigation }) {
-  const { album: initialAlbum, artistName, artistId, refresh } = route.params || {};
+  const { album: initialAlbum, artistName, artistId, localId, refresh } = route.params || {};
 
   const {
     album,
@@ -60,6 +64,7 @@ export default function AlbumScreen({ route, navigation }) {
     albumState,
     albumRating,
     albumComment,
+    localAlbumId,
     isFavorite,
     dominantColor,
     setDominantColor,
@@ -69,8 +74,8 @@ export default function AlbumScreen({ route, navigation }) {
     toggleFavorite,
     deleteAlbum,
     saveAlbumComment,
+    saveGenres,
     saveTrackRating,
-    refreshAlbumInfo,
     updateAlbum,
     setTracks,
     resolvedArtistId,
@@ -79,6 +84,8 @@ export default function AlbumScreen({ route, navigation }) {
   const [isEditingComment, setIsEditingComment] = useState(false);
   const [tempComment, setTempComment] = useState('');
   const [showStateModal, setShowStateModal] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCardRef = useRef(null);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [imageUrl, setImageUrl] = useState('');
@@ -88,15 +95,39 @@ export default function AlbumScreen({ route, navigation }) {
   const [contentReady, setContentReady] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const imageEnterScale = useRef(new Animated.Value(1.08)).current;
+  const imageEnterOpacity = useRef(new Animated.Value(0)).current;
+
+  // Animación de entrada de la portada — zoom sutil desde la card
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(imageEnterScale, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(imageEnterOpacity, {
+        toValue: 1,
+        duration: 280,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const imageAnimatedStyle = {
+    opacity: imageEnterOpacity,
     transform: [
       {
-        scale: scrollY.interpolate({
-          inputRange: [-200, 0, 200],
-          outputRange: [1.5, 1, 0.8],
-          extrapolate: 'clamp',
-        }),
+        scale: Animated.multiply(
+          imageEnterScale,
+          scrollY.interpolate({
+            inputRange: [-200, 0, 200],
+            outputRange: [1.5, 1, 0.8],
+            extrapolate: 'clamp',
+          })
+        ),
       },
       {
         translateY: scrollY.interpolate({
@@ -219,6 +250,22 @@ export default function AlbumScreen({ route, navigation }) {
     }
   };
 
+  const handleShare = async () => {
+    if (!shareCardRef.current) return;
+    try {
+      setIsSharing(true);
+      const uri = await shareCardRef.current.capture();
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: `${album.title} — WaxLog`,
+      });
+    } catch (err) {
+      if (__DEV__) console.error('Error compartiendo:', err);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   const handleSaveComment = async (comment) => {
     const success = await saveAlbumComment(comment);
     return success;
@@ -260,10 +307,26 @@ export default function AlbumScreen({ route, navigation }) {
         onSelect={updateAlbumState}
         onToggleFavorite={toggleFavorite}
         onDelete={handleDeleteAlbum}
-        onRefresh={refreshAlbumInfo}
+        onShare={handleShare}
+        isSharing={isSharing}
         currentState={albumState}
         isFavorite={isFavorite}
       />
+
+      {/* ShareCard fuera de pantalla — solo para captura */}
+      {isSaved && (
+        <View style={styles.offscreen}>
+          <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1, pixelRatio: 3 }}>
+            <ShareCard
+              album={album}
+              artistName={artistName}
+              albumRating={albumRating}
+              tracks={tracks}
+              dominantColor={dominantColor}
+            />
+          </ViewShot>
+        </View>
+      )}
 
       <Animated.ScrollView
         style={{ flex: 1 }}
@@ -285,6 +348,7 @@ export default function AlbumScreen({ route, navigation }) {
           artistName={artistName}
           dominantColor={dominantColor}
           imageUrl={imageUrl}
+          localId={localId}
           onToggleFavorite={toggleFavorite}
           onSaveAlbum={saveAlbum}
           onShowStateModal={() => setShowStateModal(true)}
@@ -306,7 +370,6 @@ export default function AlbumScreen({ route, navigation }) {
             comment={albumComment}
             isSaved={isSaved}
             onSaveComment={handleSaveComment}
-            dominantColor={dominantColor}
           />
 
           {isSaved && (
@@ -365,6 +428,7 @@ export default function AlbumScreen({ route, navigation }) {
               tracks={tracks}
               albumRating={albumRating}
               dominantColor={dominantColor}
+              onSaveGenres={isSaved ? saveGenres : undefined}
             />
           )}
         </Animated.View>
@@ -374,6 +438,12 @@ export default function AlbumScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  offscreen: {
+    position: 'absolute',
+    top: -9999,
+    left: -9999,
+    opacity: 0,
+  },
   content: {
     paddingHorizontal: 20,
   },

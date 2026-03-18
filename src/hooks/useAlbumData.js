@@ -164,19 +164,21 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                 // 2. Obtener detalles del álbum de Deezer
                 const albumDetails = await deezerApi.getAlbumById(album.id);
 
-                // 3. Procesar géneros
+                // 3. Procesar géneros, duración y sello
                 let genres = null;
                 if (albumDetails.genres?.data) {
                     const genreNames = albumDetails.genres.data.map(g => g.name);
                     genres = JSON.stringify(genreNames);
                 }
+                const duration    = albumDetails.duration ? parseInt(albumDetails.duration) : null;
+                const recordLabel = albumDetails.label    ? String(albumDetails.label)       : null;
 
-                // 4. Guardar álbum
+                // 4. Guardar álbum con toda la información disponible
                 const insertQuery = `
                     INSERT INTO albums (
                         deezer_id, artist_id, title, cover, release_date, record_type,
-                        genres, downloaded_at, last_updated, state
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        genres, duration, record_label, downloaded_at, last_updated, state
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 `;
 
                 const params = [
@@ -187,6 +189,8 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
                     albumDetails.release_date,
                     albumDetails.record_type || 'album',
                     genres,
+                    duration,
+                    recordLabel,
                     now,
                     now,
                     'to_listen'
@@ -319,6 +323,38 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
     }, [localAlbumId]);
 
     // Guardar comentario del álbum
+    // Guardar géneros del álbum
+    const saveGenres = useCallback(async (genresList) => {
+        if (!localAlbumId || operationInProgressRef.current) return false;
+
+        operationInProgressRef.current = true;
+
+        try {
+            const genresJson = JSON.stringify(genresList);
+            await executeDBOperation(async (db) => {
+                const now = new Date().toISOString();
+                await db.runAsync(
+                    `UPDATE albums SET genres = ?, last_updated = ? WHERE id = ?`,
+                    [genresJson, now, localAlbumId]
+                );
+            });
+
+            await waitForDB(300);
+            // Actualizar albumDetails localmente
+            if (albumDetails) {
+                setAlbumDetails({ ...albumDetails, genres: JSON.stringify(genresList) });
+            }
+            return true;
+
+        } catch (error) {
+            if (__DEV__) console.error('Error guardando géneros:', error);
+            Alert.alert('Error', 'No se pudieron guardar los géneros');
+            return false;
+        } finally {
+            operationInProgressRef.current = false;
+        }
+    }, [localAlbumId, albumDetails]);
+
     const saveAlbumComment = useCallback(async (comment) => {
         if (!localAlbumId || operationInProgressRef.current) return false;
 
@@ -486,6 +522,7 @@ export const useAlbumData = (initialAlbum, artistName, artistId) => {
         toggleFavorite,
         deleteAlbum,
         saveAlbumComment,
+        saveGenres,
         saveTrackRating,
         refreshAlbumInfo,
         updateAlbum,

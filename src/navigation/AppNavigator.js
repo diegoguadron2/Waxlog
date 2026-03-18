@@ -50,8 +50,8 @@ const StateStack = ({ state }) => {
         name="Album" 
         component={AlbumScreen} 
         options={{
-          animation: 'fade', 
-          animationDuration: 300,
+          animation: 'fade_from_bottom',
+          animationDuration: 350,
         }}
       />
       <Stack.Screen 

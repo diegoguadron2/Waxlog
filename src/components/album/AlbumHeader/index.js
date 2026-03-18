@@ -16,7 +16,6 @@ import PressAnimation from '../../shared/PressAnimation';
 import RatingBadge, { getRatingColor } from '../../shared/RatingBadge';
 import FavoriteStar from '../../shared/FavoriteStar';
 import ImageWithFallback from '../../shared/ImageWithFallback';
-import SharedElement from '../../shared/SharedElement';
 
 const { width, height } = Dimensions.get('window');
 
@@ -86,6 +85,7 @@ const AlbumHeader = ({
     artistName,
     dominantColor,
     imageUrl,
+    localId,
     onToggleFavorite,
     onSaveAlbum,
     onShowStateModal,
@@ -127,15 +127,13 @@ const AlbumHeader = ({
             {/* Portada */}
             <View style={styles.imageContainer}>
                 <Animated.View style={[StyleSheet.absoluteFill, imageAnimatedStyle]}>
-                    <SharedElement id={`album-${album.id}`}>
-                        <ImageWithFallback
-                            source={imageUrl}
-                            style={styles.image}
-                            contentFit="cover"
-                            showLoading={false}
-                            transition={0}
-                        />
-                    </SharedElement>
+                    <ImageWithFallback
+                        source={imageUrl}
+                        style={styles.image}
+                        contentFit="cover"
+                        showLoading={false}
+                        transition={0}
+                    />
                 </Animated.View>
                 <Gradient
                     colors={['transparent', dominantColor + 'FF']}
