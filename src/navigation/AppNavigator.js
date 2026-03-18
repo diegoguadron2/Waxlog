@@ -19,6 +19,7 @@ import ArtistsAlbumsScreen from '../screens/ArtistsAlbumsScreen';
 import SaveAlbumScreen from '../screens/SaveAlbumScreen';
 import GenreScreen from '../screens/GenreScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import TierListScreen from '../screens/Tierlistscreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -103,6 +104,7 @@ const MainStackNavigator = () => (
     <Stack.Screen name="ArtistsAlbums" component={ArtistsAlbumsScreen} />
     <Stack.Screen name="Search" component={SearchScreen} />
     <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="TierList" component={TierListScreen} />
     <Stack.Screen name="Artist" component={ArtistScreen} />
     <Stack.Screen name="Album" component={AlbumScreen} />
     <Stack.Screen name="Track" component={TrackScreen} />

@@ -229,6 +229,13 @@ export const initDatabase = async () => {
     `);
 
     console.log('Tablas listas');
+
+    // Migración: agregar tier_position si no existe
+    try {
+      await database.execAsync(`ALTER TABLE albums ADD COLUMN tier_position TEXT;`);
+    } catch (_) {
+      // La columna ya existe — ignorar el error
+    }
   });
 };
 

@@ -1,15 +1,15 @@
 // App.js
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated'; // 👈 IMPORTAR
+import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from "./src/navigation/AppNavigator";
 import { initDatabase } from './src/database/Index';
 import { SharedElementProvider } from './src/context/SharedElementContext';
 
-// Configurar Reanimated (menos estricto)
 configureReanimatedLogger({
   level: ReanimatedLogLevel.warn,
-  strict: false, // 👈 Desactiva warnings de renderizado
+  strict: false,
 });
 
 export default function App() {
@@ -18,30 +18,33 @@ export default function App() {
   useEffect(() => {
     const setupDatabase = async () => {
       try {
-        console.log('📦 Inicializando base de datos...');
+        if (__DEV__) console.log('📦 Inicializando base de datos...');
         await initDatabase();
-        console.log('✅ Base de datos lista');
+        if (__DEV__) console.log('✅ Base de datos lista');
         setIsDBReady(true);
       } catch (error) {
-        console.error('❌ Error inicializando BD:', error);
+        if (__DEV__) console.error('❌ Error inicializando BD:', error);
         setIsDBReady(true);
       }
     };
-
     setupDatabase();
   }, []);
 
   if (!isDBReady) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#9333EA" />
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#9333EA" />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <SharedElementProvider>
-      <AppNavigator />
-    </SharedElementProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SharedElementProvider>
+        <AppNavigator />
+      </SharedElementProvider>
+    </GestureHandlerRootView>
   );
 }

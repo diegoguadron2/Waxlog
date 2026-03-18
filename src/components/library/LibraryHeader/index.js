@@ -25,6 +25,7 @@ const LibraryHeader = ({
     { name: 'Inicio', screen: 'Home', icon: 'home-outline' },
     { name: 'Listas', screen: 'Lists', icon: 'list-outline' },
     { name: 'Géneros', screen: 'ArtistsAlbums', icon: 'mic-outline' },
+    { name: 'Tier List', screen: 'TierList', icon: 'podium-outline' },
     { name: 'Agregar álbum', screen: 'SaveAlbum', icon: 'add-circle-outline' },
     { name: 'Configuración', screen: 'Settings', icon: 'settings-outline' },
   ];
